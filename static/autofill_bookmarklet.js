@@ -34,8 +34,8 @@
         return;
     }
 
-    if (!d || (!d.full_name && !d.aadhar_number)) {
-        notify('⚠️ No Aadhaar record loaded. Extract an Aadhaar image first!', '#f59e0b');
+    if (!d || (!d.full_name && !d.aadhar_number && !d.pan_number)) {
+        notify('⚠️ No document record loaded. Extract an Aadhaar or PAN image first!', '#f59e0b');
         return;
     }
 

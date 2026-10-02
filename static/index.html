@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aadhaar Dynamic Extractor & Google Sheets Pipeline</title>
+  <title>Aadhaar & PAN Dynamic Extractor & Google Sheets Pipeline</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -902,7 +902,7 @@
         </svg>
       </div>
       <div class="brand-info">
-        <h1>Aadhaar Vision Extractor</h1>
+        <h1>Aadhaar & PAN Vision Extractor</h1>
         <p>100% Free &bull; Dynamic Deep OCR &bull; Google Sheets</p>
       </div>
     </div>
@@ -931,7 +931,7 @@
       <div class="card-header">
         <div class="card-title">
           <svg class="card-title-icon" width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
-          <span>Aadhaar Document Scan</span>
+          <span>Document Scan (Aadhaar & PAN)</span>
         </div>
         <span id="extraction-badge" class="pill-caps">Waiting for Upload</span>
       </div>
@@ -942,8 +942,8 @@
           <div class="dropzone-icon">
             <svg width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
           </div>
-          <h3>Select or Drop Multiple Aadhaar Cards</h3>
-          <p>Process 1 or multiple cards at once (JPG, PNG, PDF)</p>
+          <h3>Select or Drop Aadhaar or PAN Cards</h3>
+          <p>Auto-detects Aadhaar and PAN cards with zero hardcoding (JPG, PNG, PDF)</p>
         </div>
 
         <!-- Batch Cards Queue -->
@@ -971,7 +971,7 @@
             <svg width="48" height="48" fill="currentColor" style="opacity: 0.3;" viewBox="0 0 24 24"><path d="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-4.86 8.86l-3 3.87L9 13.14 6 17h12l-3.86-5.14z"/></svg>
             <p>Uploaded card preview will appear here</p>
           </div>
-          <img id="preview-img" class="preview-image" alt="Aadhaar Card Preview">
+          <img id="preview-img" class="preview-image" alt="Document Preview">
           <div id="img-controls" class="image-controls">
             <button class="ctrl-btn" title="Rotate Left" onclick="rotateImage(-90)">&#x21ba;</button>
             <button class="ctrl-btn" title="Rotate Right" onclick="rotateImage(90)">&#x21bb;</button>
@@ -1231,14 +1231,16 @@
     var payload = JSON.parse(e.postData.contents);
     var records = Array.isArray(payload) ? payload : (payload.records || [payload]);
 
-    // 15 Capitalized Headers without TIMESTAMP
+    // 17 Capitalized Headers without TIMESTAMP
     if (sheet.getLastRow() === 0) {
       sheet.appendRow([
+        "DOCUMENT TYPE",
+        "PAN NUMBER",
         "AADHAAR NUMBER",
         "APPLICANT FIRST NAME",
         "APPLICANT MIDDLE NAME",
         "APPLICANT LAST NAME",
-        "NAME AS PER AADHAAR",
+        "NAME AS PER AADHAAR / PAN",
         "FATHER FIRST NAME",
         "FATHER MIDDLE NAME",
         "FATHER LAST NAME",
@@ -1255,11 +1257,13 @@
     // Append all records in CAPITAL CASE
     records.forEach(function(item) {
       sheet.appendRow([
+        String(item.document_type || "AADHAAR CARD").toUpperCase(),
+        String(item.pan_number || "").toUpperCase(),
         String(item.aadhar_number || "").toUpperCase(),
         String(item.applicant_first_name || "").toUpperCase(),
         String(item.applicant_middle_name || "").toUpperCase(),
         String(item.applicant_last_name || "").toUpperCase(),
-        String(item.name_as_per_aadhar || item.full_name || "").toUpperCase(),
+        String(item.name_as_per_pan || item.name_as_per_aadhar || item.full_name || "").toUpperCase(),
         String(item.father_first_name || "").toUpperCase(),
         String(item.father_middle_name || "").toUpperCase(),
         String(item.father_last_name || "").toUpperCase(),
@@ -1521,8 +1525,10 @@ function testDoPost() {
 
     const PRESET_DEFINITIONS = {
       standard: [
-        { key: 'full_name', label: 'Full Name' },
+        { key: 'document_type', label: 'Document Type' },
+        { key: 'pan_number', label: 'PAN Number' },
         { key: 'aadhar_number', label: 'Aadhaar Number' },
+        { key: 'full_name', label: 'Full Name' },
         { key: 'dob', label: 'Date of Birth (DD/MM/YYYY)' },
         { key: 'gender', label: 'Gender' },
         { key: 'mobile_number', label: 'Mobile Number' },
@@ -1533,9 +1539,12 @@ function testDoPost() {
         { key: 'state', label: 'State' }
       ],
       pan: [
+        { key: 'document_type', label: 'Document Type' },
+        { key: 'pan_number', label: 'PAN Number' },
         { key: 'applicant_first_name', label: 'First Name (Initial Expanded)' },
         { key: 'applicant_middle_name', label: 'Middle Name' },
         { key: 'applicant_last_name', label: 'Last Name / Surname * (Mandatory)' },
+        { key: 'name_as_per_pan', label: 'Name As Per PAN' },
         { key: 'name_as_per_aadhar', label: 'Name As Per Aadhaar' },
         { key: 'father_first_name', label: "Father's First Name" },
         { key: 'father_middle_name', label: "Father's Middle Name" },
@@ -1594,8 +1603,11 @@ function testDoPost() {
           previewUrl: URL.createObjectURL(f),
           status: 'pending',
           data: {
+            document_type: '',
+            pan_number: '',
             aadhar_number: '',
             full_name: '',
+            name_as_per_pan: '',
             name_as_per_aadhar: '',
             applicant_first_name: '',
             applicant_middle_name: '',
@@ -1657,22 +1669,31 @@ function testDoPost() {
 
       container.innerHTML = batchQueue.map((card, idx) => {
         const isActive = idx === activeIndex ? 'active' : '';
+        const isPan = card.data && (card.data.document_type === 'PAN CARD' || card.data.pan_number);
+        const docBadge = isPan
+          ? '<span style="background:rgba(56,189,248,0.18);color:#38bdf8;border:1px solid rgba(56,189,248,0.4);border-radius:4px;padding:1px 5px;font-size:0.6rem;font-weight:700;margin-left:4px;">PAN</span>'
+          : (card.data && card.data.aadhar_number ? '<span style="background:rgba(52,211,153,0.18);color:#34d399;border:1px solid rgba(52,211,153,0.4);border-radius:4px;padding:1px 5px;font-size:0.6rem;font-weight:700;margin-left:4px;">AADHAAR</span>' : '');
+
         const badgeText = card.status === 'pending' ? 'Pending' :
                           card.status === 'extracting' ? 'Extracting...' :
                           card.status === 'ready' ? 'Ready' :
                           card.status === 'synced' ? 'Synced ✓' : 'Error';
 
         const displayName = card.data.full_name || card.filename;
-        const displaySub = card.data.aadhar_number ? card.data.aadhar_number : `Card #${idx + 1}`;
+        const displaySub = isPan ? (card.data.pan_number || 'PAN Card') : (card.data.aadhar_number ? card.data.aadhar_number : `Card #${idx + 1}`);
 
         return `
           <div class="batch-card-chip ${isActive}" onclick="selectCard(${idx})">
             <div class="chip-top">
-              <span class="chip-badge ${card.status}">${badgeText}</span>
+              <div style="display:flex;align-items:center;">
+                <span class="chip-badge ${card.status}">${badgeText}</span>
+                ${docBadge}
+              </div>
               <button class="chip-del" title="Remove Card" onclick="removeCard(event, ${idx})">&times;</button>
             </div>
             <div class="chip-filename" title="${card.filename}">${card.filename}</div>
             <div class="chip-name" title="${displayName}">${displayName}</div>
+            <div style="font-size:0.68rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">${displaySub}</div>
           </div>
         `;
       }).join('');
@@ -1701,8 +1722,9 @@ function testDoPost() {
         badge.innerText = 'Synced to Sheet ✓';
         badge.style.color = 'var(--cyan)';
       } else if (card.status === 'ready') {
-        badge.innerText = 'Extraction Ready';
-        badge.style.color = '#34d399';
+        const isPan = card.data && (card.data.document_type === 'PAN CARD' || card.data.pan_number);
+        badge.innerText = isPan ? 'PAN Card Ready ✓' : 'Aadhaar Ready ✓';
+        badge.style.color = isPan ? '#38bdf8' : '#34d399';
       } else if (card.status === 'extracting') {
         badge.innerText = 'Extracting...';
         badge.style.color = '#a5b4fc';
@@ -1753,12 +1775,13 @@ function testDoPost() {
         if (result.status === 'success') {
           card.data = result.data;
           card.status = 'ready';
+          const isPan = card.data && (card.data.document_type === 'PAN CARD' || card.data.pan_number);
           if (idx === activeIndex) {
             renderFields();
             const badge = document.getElementById('extraction-badge');
-            badge.innerText = 'Extraction Ready';
-            badge.style.color = '#34d399';
-            showToast(`Data extracted for ${card.filename}!`, 'success');
+            badge.innerText = isPan ? 'PAN Card Ready ✓' : 'Aadhaar Ready ✓';
+            badge.style.color = isPan ? '#38bdf8' : '#34d399';
+            showToast(`Data extracted for ${card.filename} (${isPan ? 'PAN Card' : 'Aadhaar Card'})!`, 'success');
           }
         } else {
           card.status = 'error';
@@ -2122,8 +2145,12 @@ function testDoPost() {
 
     function generateStandaloneAutofillScript(cardData) {
       const d = cardData || getActiveCardData();
+      const isPan = d.document_type === 'PAN CARD' || !!d.pan_number;
       const jsonStr = JSON.stringify({
+        document_type: d.document_type || '',
+        pan_number: d.pan_number || '',
         full_name: d.full_name || '',
+        name_as_per_pan: d.name_as_per_pan || d.full_name || '',
         name_as_per_aadhar: d.name_as_per_aadhar || d.full_name || '',
         applicant_first_name: d.applicant_first_name || '',
         applicant_middle_name: d.applicant_middle_name || '',
@@ -2143,7 +2170,7 @@ function testDoPost() {
 
       return `(() => {
   const d = ${jsonStr};
-  console.log("⚡ [Aadhaar Form 49A Autofill] Starting for:", d.full_name || d.name_as_per_aadhar);
+  console.log("⚡ [Document Autofill] Starting for:", d.full_name || d.name_as_per_aadhar || d.name_as_per_pan);
 
   let filledCount = 0;
   const report = [];
@@ -2467,7 +2494,7 @@ function testDoPost() {
       }
 
       // Collect cards that have at least some data
-      const readyCards = batchQueue.filter(c => c.data && (c.data.aadhar_number || c.data.full_name));
+      const readyCards = batchQueue.filter(c => c.data && (c.data.aadhar_number || c.data.pan_number || c.data.full_name));
       if (readyCards.length === 0) {
         showToast('No extracted cards to sync yet.', 'error');
         return;
@@ -2580,21 +2607,6 @@ function testDoPost() {
       const code = document.getElementById('userscript-code').innerText;
       navigator.clipboard.writeText(code);
       showToast('Userscript code copied to clipboard!', 'success');
-    }
-
-    async function triggerCDPFill(step = 'all') {
-      showToast(`Connecting via CDP on port 9222 (${step})...`, 'info');
-      try {
-        const res = await fetch(apiUrl(`/api/cdp-fill?step=${step}`));
-        const result = await res.json();
-        if (result.status === 'error') {
-          showToast(result.message || 'Make sure Chrome is running on port 9222', 'error');
-        } else {
-          showToast(`CDP filled '${step}' in open Chrome portal!`, 'success');
-        }
-      } catch (err) {
-        showToast(`CDP error: ${err.message}`, 'error');
-      }
     }
   </script>
 

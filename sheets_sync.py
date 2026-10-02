@@ -13,13 +13,15 @@ from datetime import datetime
 
 CSV_FILE = "aadhaar_extracted_records.csv"
 
-# 15 PAN-Ready Fields in Capitalized Headers (TIMESTAMP removed)
+# 17 PAN & Aadhaar Fields in Capitalized Headers (TIMESTAMP removed)
 HEADERS = [
+    "DOCUMENT TYPE",
+    "PAN NUMBER",
     "AADHAAR NUMBER",
     "APPLICANT FIRST NAME",
     "APPLICANT MIDDLE NAME",
     "APPLICANT LAST NAME",
-    "NAME AS PER AADHAAR",
+    "NAME AS PER AADHAAR / PAN",
     "FATHER FIRST NAME",
     "FATHER MIDDLE NAME",
     "FATHER LAST NAME",
@@ -33,18 +35,20 @@ HEADERS = [
 ]
 
 def append_to_local_csv(data: dict) -> str:
-    """Appends record to local CSV file with 15 PAN-ready fields without timestamp."""
+    """Appends record to local CSV file with PAN & Aadhaar fields without timestamp."""
     file_exists = os.path.exists(CSV_FILE)
     with open(CSV_FILE, mode="a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         if not file_exists:
             writer.writerow(HEADERS)
         writer.writerow([
+            data.get("document_type", "AADHAAR CARD").upper(),
+            data.get("pan_number", "").upper(),
             data.get("aadhar_number", "").upper(),
             data.get("applicant_first_name", "").upper(),
             data.get("applicant_middle_name", "").upper(),
             data.get("applicant_last_name", "").upper(),
-            data.get("name_as_per_aadhar", data.get("full_name", "")).upper(),
+            (data.get("name_as_per_pan") or data.get("name_as_per_aadhar") or data.get("full_name", "")).upper(),
             data.get("father_first_name", "").upper(),
             data.get("father_middle_name", "").upper(),
             data.get("father_last_name", "").upper(),
@@ -60,7 +64,7 @@ def append_to_local_csv(data: dict) -> str:
 
 
 def append_batch_to_local_csv(records: list) -> str:
-    """Appends multiple records to local CSV file with 15 PAN-ready fields without timestamp."""
+    """Appends multiple records to local CSV file with PAN & Aadhaar fields without timestamp."""
     file_exists = os.path.exists(CSV_FILE)
     with open(CSV_FILE, mode="a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -68,11 +72,13 @@ def append_batch_to_local_csv(records: list) -> str:
             writer.writerow(HEADERS)
         for data in records:
             writer.writerow([
+                data.get("document_type", "AADHAAR CARD").upper(),
+                data.get("pan_number", "").upper(),
                 data.get("aadhar_number", "").upper(),
                 data.get("applicant_first_name", "").upper(),
                 data.get("applicant_middle_name", "").upper(),
                 data.get("applicant_last_name", "").upper(),
-                data.get("name_as_per_aadhar", data.get("full_name", "")).upper(),
+                (data.get("name_as_per_pan") or data.get("name_as_per_aadhar") or data.get("full_name", "")).upper(),
                 data.get("father_first_name", "").upper(),
                 data.get("father_middle_name", "").upper(),
                 data.get("father_last_name", "").upper(),
@@ -89,12 +95,18 @@ def append_batch_to_local_csv(records: list) -> str:
 
 def normalize_record(data: dict) -> dict:
     """Normalizes record fields to clean UPPERCASE without timestamp."""
+    full_nm = str(data.get("name_as_per_pan") or data.get("name_as_per_aadhar") or data.get("full_name", "")).upper().strip()
     return {
+        "document_type": str(data.get("document_type", "AADHAAR CARD")).upper().strip(),
+        "pan_number": str(data.get("pan_number", "")).upper().strip(),
         "aadhar_number": str(data.get("aadhar_number", "")).upper().strip(),
         "applicant_first_name": str(data.get("applicant_first_name", "")).upper().strip(),
         "applicant_middle_name": str(data.get("applicant_middle_name", "")).upper().strip(),
         "applicant_last_name": str(data.get("applicant_last_name", "")).upper().strip(),
-        "name_as_per_aadhar": str(data.get("name_as_per_aadhar", data.get("full_name", ""))).upper().strip(),
+        "name_as_per_pan": full_nm,
+        "name_as_per_aadhar": full_nm,
+        "full_name": full_nm,
+        "father_name": str(data.get("father_name", "")).upper().strip(),
         "father_first_name": str(data.get("father_first_name", "")).upper().strip(),
         "father_middle_name": str(data.get("father_middle_name", "")).upper().strip(),
         "father_last_name": str(data.get("father_last_name", "")).upper().strip(),

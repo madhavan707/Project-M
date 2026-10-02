@@ -113,6 +113,121 @@ def try_decode_qr(image_path: str):
     return None
 
 
+def is_pan_card(lines: list) -> bool:
+    """Detects if the text lines belong to an Indian PAN Card."""
+    combined = " ".join(lines).upper().replace(" ", "")
+    # Check for 10-char alphanumeric PAN pattern
+    if re.search(r'\b[A-Z]{5}[0-9]{4}[A-Z]\b', combined):
+        return True
+    pan_keywords = ["INCOMETAX", "INCOMETAXDEPARTMENT", "PERMANENTACCOUNT", "GOVTOFINDIA"]
+    if any(k in combined for k in pan_keywords) and "AADHAAR" not in combined:
+        return True
+    return False
+
+
+def parse_pan_ocr(lines: list) -> dict:
+    """
+    Dynamic parser for Indian Permanent Account Number (PAN) Cards.
+    Extracts:
+    - PAN Number (10 characters: 5 letters, 4 digits, 1 letter)
+    - Cardholder Name (Full Name)
+    - Father's Name
+    - Date of Birth (DD/MM/YYYY with OCR slash repair)
+    - Category of Applicant (Individual from 4th char 'P')
+    All strictly normalized to CAPITAL CASE.
+    """
+    raw_lines = [l.strip() for l in lines if l and len(l.strip()) > 1]
+
+    # 1. PAN Number
+    pan_number = ""
+    for l in raw_lines:
+        clean = re.sub(r'[^A-Za-z0-9]', '', l).upper()
+        m = re.search(r'([A-Z]{5}[0-9]{4}[A-Z])', clean)
+        if m:
+            pan_number = m.group(1)
+            break
+
+    # 2. Date of Birth (DD/MM/YYYY with slash repair)
+    dob = ""
+    dob_idx = -1
+    for i, l in enumerate(raw_lines):
+        m = re.search(r'\b([0-3]\d)[/.-]([0-1]\d)[/.-](\d{4})\b', l)
+        if m:
+            dob = f"{m.group(1)}/{m.group(2)}/{m.group(3)}"
+            dob_idx = i
+            break
+        # Healed slash (e.g. 07106/1980)
+        m2 = re.search(r'\b([0-3]\d)[1/|lI]([0-1]\d)[1/|lI](\d{4})\b', l)
+        if m2:
+            dob = f"{m2.group(1)}/{m2.group(2)}/{m2.group(3)}"
+            dob_idx = i
+            break
+
+    # 3. Candidate lines for Name and Father's Name
+    ignore_terms = [
+        "INCOME", "TAX", "DEPARTMENT", "INCOMETAXDEPARTMENT", "GOVT", "INDIA",
+        "BHARAT", "GOVERNMENT", "ACCOUNT", "PERMANENT", "NUMBER", "SIGNATURE",
+        "NAME", "FATHER", "DATE", "BIRTH", "CARD"
+    ]
+
+    candidates = []
+    start_collecting = False
+    for i, l in enumerate(raw_lines):
+        clean_l = re.sub(r'[^A-Za-z0-9/\s.]', '', l).strip()
+        if not clean_l:
+            continue
+        compact = clean_l.upper().replace(" ", "")
+
+        if any(k in compact for k in ["INCOME", "TAX", "GOVT", "INDIA", "DEPARTMENT"]):
+            start_collecting = True
+            continue
+
+        if i == dob_idx or (pan_number and pan_number in compact):
+            break
+
+        if start_collecting:
+            letters_only = re.sub(r'[^A-Za-z]', '', clean_l)
+            if len(letters_only) >= 3 and not any(k in clean_l.upper() for k in ignore_terms):
+                if len(re.findall(r'\d', clean_l)) <= 2:
+                    candidates.append(clean_l.upper())
+
+    full_name = candidates[0] if len(candidates) > 0 else ""
+    father_name = candidates[1] if len(candidates) > 1 else ""
+
+    # South Indian initial repair: if name ends with father's first letter, e.g. JAYAKUMARB -> JAYAKUMAR B
+    if father_name and len(father_name) > 1 and full_name:
+        f_init = father_name[0].upper()
+        if full_name.endswith(f_init) and len(full_name) > 3 and not full_name.endswith(" " + f_init):
+            full_name = full_name[:-1].strip() + " " + f_init
+
+    entity_type = "INDIVIDUAL"
+    if len(pan_number) == 10:
+        c = pan_number[3]
+        if c == "C": entity_type = "COMPANY"
+        elif c == "H": entity_type = "HUF"
+        elif c == "F": entity_type = "FIRM"
+        elif c == "T": entity_type = "TRUST"
+
+    return {
+        "document_type": "PAN CARD",
+        "pan_number": clean_caps(pan_number),
+        "aadhar_number": "",
+        "full_name": clean_caps(full_name),
+        "name_as_per_pan": clean_caps(full_name),
+        "father_name": clean_caps(father_name),
+        "dob": clean_caps(dob),
+        "gender": "MALE",
+        "category_of_applicant": entity_type,
+        "residential_status": "RESIDENT INDIVIDUAL",
+        "address_line_1": "",
+        "address_line_2": "",
+        "pincode": "",
+        "state": "",
+        "mobile_number": "",
+        "extraction_source": "DYNAMIC_PAN_OCR"
+    }
+
+
 def parse_aadhaar_ocr(lines: list) -> dict:
     """
     Completely dynamic parser for ANY Aadhaar card layout, language, or format.
@@ -397,6 +512,7 @@ def enrich_with_pan_fields(data: dict) -> dict:
     Guarantees no single-letter First Name if father expansion matches.
     All outputs strictly in CAPITAL CASE.
     """
+    doc_type = data.get("document_type", "AADHAAR CARD")
     raw_name = data.get("full_name", "").strip()
     raw_father = data.get("father_name", "").strip()
 
@@ -419,8 +535,12 @@ def enrich_with_pan_fields(data: dict) -> dict:
                 break
 
     data.update({
+        "document_type": doc_type,
+        "pan_number": clean_caps(data.get("pan_number", "")),
+        "aadhar_number": clean_caps(data.get("aadhar_number", "")),
         "full_name": clean_caps(raw_name),
-        "name_as_per_aadhar": clean_caps(raw_name),
+        "name_as_per_pan": clean_caps(raw_name if doc_type == "PAN CARD" else data.get("name_as_per_pan", "")),
+        "name_as_per_aadhar": clean_caps(raw_name if doc_type != "PAN CARD" else data.get("name_as_per_aadhar", "")),
         "expanded_name": clean_caps(expanded_applicant_name),
         "applicant_first_name": clean_caps(app_first),
         "applicant_middle_name": clean_caps(app_mid),
@@ -429,15 +549,17 @@ def enrich_with_pan_fields(data: dict) -> dict:
         "father_first_name": clean_caps(fat_first),
         "father_middle_name": clean_caps(fat_mid),
         "father_last_name": clean_caps(fat_last),
+        "dob": clean_caps(data.get("dob", "")),
+        "gender": clean_caps(data.get("gender", "MALE")),
         "state": clean_caps(state),
         "isd_code": "91",
-        "residential_status": "RESIDENT INDIVIDUAL",
+        "residential_status": clean_caps(data.get("residential_status", "RESIDENT INDIVIDUAL")),
         "single_parent": "NO",
         "card_name_printed": "FATHER",
         "address_for_communication": "RESIDENCE",
-        "proof_identity": "AADHAAR CARD",
-        "proof_address": "AADHAAR CARD",
-        "proof_dob": "AADHAAR CARD"
+        "proof_identity": "PAN CARD" if doc_type == "PAN CARD" else "AADHAAR CARD",
+        "proof_address": "PAN CARD" if doc_type == "PAN CARD" else "AADHAAR CARD",
+        "proof_dob": "PAN CARD" if doc_type == "PAN CARD" else "AADHAAR CARD"
     })
     return data
 
@@ -455,29 +577,39 @@ def rotate_image(image, angle):
 
 def extract_aadhaar_data(image_path: str) -> dict:
     """
-    Main extraction function for ANY dynamic image:
+    Main extraction function for ANY dynamic document (Aadhaar or PAN Card):
     1. Tests QR code decode.
-    2. Runs RapidOCR. If orientation is sideways or upside-down, attempts auto-rotation.
-    3. Guarantees 100% CAPITAL CASE output with decomposed PAN fields.
+    2. Runs RapidOCR.
+    3. Auto-detects whether the document is a PAN Card or an Aadhaar Card.
+    4. Guarantees 100% CAPITAL CASE output with decomposed PAN fields.
     """
-    # 1. Try QR Code
+    # 1. Try QR Code (for Aadhaar)
     qr_data = try_decode_qr(image_path)
     if qr_data and qr_data.get("aadhar_number") and qr_data.get("full_name"):
+        qr_data["document_type"] = "AADHAAR CARD"
         return enrich_with_pan_fields(qr_data)
 
-    # Pre-scale image if it is too massive (> 1600px)
+    # Pre-scale image for fast OCR if > 1400px
     img = cv2.imread(image_path)
     if img is not None:
         h, w = img.shape[:2]
-        if max(h, w) > 1600:
-            scale = 1600.0 / max(h, w)
+        if max(h, w) > 1400:
+            scale = 1400.0 / max(h, w)
             img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
 
     # 2. OCR Extraction
     ocr = get_ocr_engine()
     results, _ = ocr(img if img is not None else image_path)
     lines = [item[1] for item in (results or [])]
+
+    # Auto-detect Document Type: Check if it's a PAN Card!
+    if is_pan_card(lines):
+        pan_data = parse_pan_ocr(lines)
+        return enrich_with_pan_fields(pan_data)
+
+    # Otherwise parse as Aadhaar Card
     extracted = parse_aadhaar_ocr(lines)
+    extracted["document_type"] = "AADHAAR CARD"
 
     # 3. If neither Aadhaar nor DOB was found, attempt 90/180/270 degree rotation
     if not extracted.get("aadhar_number") and not extracted.get("dob"):
@@ -486,7 +618,14 @@ def extract_aadhaar_data(image_path: str) -> dict:
                 rot_img = rotate_image(img, angle)
                 rot_results, _ = ocr(rot_img)
                 rot_lines = [item[1] for item in (rot_results or [])]
+
+                # Check if rotation revealed a PAN card
+                if is_pan_card(rot_lines):
+                    pan_data = parse_pan_ocr(rot_lines)
+                    return enrich_with_pan_fields(pan_data)
+
                 rot_extracted = parse_aadhaar_ocr(rot_lines)
+                rot_extracted["document_type"] = "AADHAAR CARD"
                 if rot_extracted.get("aadhar_number") or rot_extracted.get("dob"):
                     extracted = rot_extracted
                     break
@@ -498,4 +637,9 @@ def extract_aadhaar_data(image_path: str) -> dict:
                 extracted[k] = v
 
     return enrich_with_pan_fields(extracted)
+
+
+# Alias function for clarity
+extract_document_data = extract_aadhaar_data
+
 

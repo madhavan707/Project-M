@@ -35,8 +35,11 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # In-memory storage for the latest record (for instant downstream autofill API)
 # In-memory storage for the latest record (for instant downstream autofill API)
 latest_record = {
+    "document_type": "",
+    "pan_number": "",
     "aadhar_number": "",
     "full_name": "",
+    "name_as_per_pan": "",
     "name_as_per_aadhar": "",
     "applicant_first_name": "",
     "applicant_middle_name": "",
@@ -63,8 +66,11 @@ latest_record = {
 }
 
 class RecordUpdate(BaseModel):
+    document_type: str = ""
+    pan_number: str = ""
     aadhar_number: str = ""
     full_name: str = ""
+    name_as_per_pan: str = ""
     name_as_per_aadhar: str = ""
     applicant_first_name: str = ""
     applicant_middle_name: str = ""
@@ -128,6 +134,8 @@ async def extract_endpoint(file: UploadFile = File(...)):
 async def sync_sheets_endpoint(record: RecordUpdate):
     """Pushes verified record to user's Google Sheet via Apps Script Webhook."""
     data_dict = {
+        "document_type": clean_caps(record.document_type or ("PAN CARD" if record.pan_number else "AADHAAR CARD")),
+        "pan_number": clean_caps(record.pan_number),
         "aadhar_number": clean_caps(record.aadhar_number),
         "applicant_first_name": clean_caps(record.applicant_first_name),
         "applicant_middle_name": clean_caps(record.applicant_middle_name),
@@ -170,6 +178,8 @@ async def sync_sheets_batch_endpoint(batch: BatchSyncRequest):
     cleaned_list = []
     for r in batch.records:
         cleaned_list.append({
+            "document_type": clean_caps(r.document_type or ("PAN CARD" if r.pan_number else "AADHAAR CARD")),
+            "pan_number": clean_caps(r.pan_number),
             "aadhar_number": clean_caps(r.aadhar_number),
             "applicant_first_name": clean_caps(r.applicant_first_name),
             "applicant_middle_name": clean_caps(r.applicant_middle_name),

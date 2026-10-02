@@ -25,7 +25,7 @@ def get_ocr_engine():
         try:
             if hasattr(_ocr_engine, 'text_detector') and hasattr(_ocr_engine.text_detector, 'preprocess_op'):
                 _ocr_engine.text_detector.preprocess_op[0].limit_type = 'max'
-                _ocr_engine.text_detector.preprocess_op[0].limit_side_len = 1280
+                _ocr_engine.text_detector.preprocess_op[0].limit_side_len = 960
         except Exception:
             pass
     return _ocr_engine
@@ -753,12 +753,12 @@ def extract_aadhaar_data(image_path: str) -> dict:
         qr_data["document_type"] = "AADHAAR CARD"
         return enrich_with_pan_fields(qr_data)
 
-    # Pre-scale image for fast OCR if > 1400px
+    # Pre-scale image for fast high-accuracy OCR if > 1200px
     img = cv2.imread(image_path)
     if img is not None:
         h, w = img.shape[:2]
-        if max(h, w) > 1400:
-            scale = 1400.0 / max(h, w)
+        if max(h, w) > 1200:
+            scale = 1200.0 / max(h, w)
             img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
 
     # 2. OCR Extraction

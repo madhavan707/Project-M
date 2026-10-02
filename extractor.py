@@ -125,6 +125,26 @@ def is_pan_card(lines: list) -> bool:
     return False
 
 
+def is_aadhaar_card(lines: list) -> bool:
+    """Detects if lines belong to an Aadhaar card vs other documents."""
+    compact = re.sub(r'[^A-Z0-9]', '', ' '.join(lines).upper())
+    # Exclude deeds, agreements, certificates, and invoices
+    if any(k in compact for k in ['DEEDOFTRUST', 'TRUSTDEED', 'WITNESSETH', 'PARTNERSHIPDEED', 'SALEDEED', 'LEGALAGREEMENT']):
+        return False
+    # Aadhaar signals
+    aadhaar_signals = ['UNIQUEIDENTIFICATION', 'MERAAADHAAR', 'UIDAI', 'ENROLMENTNO', 'TOUIDAI', 'HELP@UIDAI']
+    if any(s in compact for s in aadhaar_signals):
+        return True
+    # Card layout: Government of India + (DOB or Year of Birth or Gender or 12-digit number)
+    if 'GOVERNMENTOFINDIA' in compact and any(k in compact for k in ['DOB', 'YEAROFBIRTH', 'MALE', 'FEMALE']):
+        return True
+    # Standalone 12-digit UID pattern in card format
+    has_uid = any(re.search(r'\b\d{4}\s\d{4}\s\d{4}\b', l) for l in lines)
+    if has_uid and any(k in compact for k in ['MALE', 'FEMALE', 'DOB', 'FATHER', 'HUSBAND', 'ADDRESS']):
+        return True
+    return False
+
+
 def parse_pan_ocr(lines: list) -> dict:
     """
     Dynamic parser for Indian Permanent Account Number (PAN) Cards.
@@ -226,6 +246,150 @@ def parse_pan_ocr(lines: list) -> dict:
         "mobile_number": "",
         "extraction_source": "DYNAMIC_PAN_OCR"
     }
+
+
+def parse_general_document(lines: list) -> dict:
+    """
+    Universal parser for ANY document:
+    - Deeds of Trust
+    - Partnership Deeds
+    - Legal Agreements & Contracts
+    - Certificates
+    - Invoices & Bills
+    - General Documents
+    Extracts all key-value pairs, numbered/roman clauses, entity names, registered addresses,
+    members/trustees lists, and individual metadata. All normalized to CAPITAL CASE.
+    """
+    text = '\n'.join(lines)
+    compact_upper = re.sub(r'[^A-Z0-9]', '', text.upper())
+    
+    data = {
+        'document_type': 'GENERAL DOCUMENT'
+    }
+    
+    # 1. Document Classification
+    if any(k in compact_upper for k in ['DEEDOFTRUST', 'TRUSTDEED', 'MEMBERSOFTHE', 'WITNESSETHASFOLLOWS']):
+        data['document_type'] = 'DEED OF TRUST'
+    elif 'PARTNERSHIPDEED' in compact_upper:
+        data['document_type'] = 'PARTNERSHIP DEED'
+    elif any(k in compact_upper for k in ['SALEDEED', 'TITLEDEED']):
+        data['document_type'] = 'SALE DEED'
+    elif any(k in compact_upper for k in ['MEMORANDUM', 'AGREEMENT', 'INDENTURE']):
+        data['document_type'] = 'LEGAL AGREEMENT'
+    elif 'CERTIFICATE' in compact_upper:
+        data['document_type'] = 'CERTIFICATE'
+    elif any(k in compact_upper for k in ['TAXINVOICE', 'INVOICE', 'BILLOFSUPPLY']):
+        data['document_type'] = 'INVOICE'
+
+    # 2. Extract Key-Value Pairs
+    # Separator must be ':' or '=' or ' - ' (surrounded by space, NOT city-pincode like POLLACHI-642004)
+    # Allows Roman numeral prefixes: I. NAME: ... or II. REGISTERED OFFICE: ...
+    kv_pattern = re.compile(
+        r'(?:^|\n)\s*(?:(?:[I|V|X\d]+|[A-Z])[\.\)]\s*)?([A-Za-z\s/_-]{2,30})\s*(?::\s*|=(?:\s*)|(?:\s+-\s+))([\s\S]*?)(?=(?:\n\s*(?:(?:[I|V|X\d]+|[A-Z])[\.\)]\s*)?[A-Za-z\s/_-]{2,30}\s*(?::\s*|=(?:\s*)|(?:\s+-\s+))|\n\s*(?:[A-Z\d]\.|\d+\.)|\Z))',
+        re.MULTILINE
+    )
+
+    for m in kv_pattern.finditer(text):
+        raw_key = m.group(1).strip()
+        raw_val = m.group(2).strip()
+        
+        clean_k = re.sub(r'[^a-zA-Z0-9]', '_', raw_key.lower()).strip('_')
+        clean_k = re.sub(r'_+', '_', clean_k)
+        
+        # Skip boilerplate legal phrasing
+        if len(clean_k) < 2 or len(clean_k) > 30 or clean_k in ['whereas', 'witnesseth', 'follows']:
+            continue
+            
+        val = re.sub(r'\s+', ' ', raw_val).strip()
+        if val:
+            data[clean_k] = clean_caps(val)
+
+    # 3. Refine Specific Fields for Trust Deed / Legal Docs
+    if 'name' in data:
+        raw_name = data['name']
+        q_match = re.search(r'[\"“\']([^\"“\']+)[\"“\']', raw_name)
+        if q_match:
+            data['name'] = clean_caps(q_match.group(1))
+        else:
+            val = re.sub(r'^(?:THE\s+TRUST\s+SHALL\s+BE\s+CALLED\s*)+', '', raw_name, flags=re.IGNORECASE)
+            data['name'] = clean_caps(val)
+        data['trust_name'] = data['name']
+        data['full_name'] = data['name']
+
+    if 'registered_office' in data:
+        raw_addr = re.sub(r'^(?:THE\s+REGISTERED\s+OFFICE\s+OF\s+THE\s+TRUST\s+SHALL\s+BE\s+AT\s*)+', '', data['registered_office'], flags=re.IGNORECASE)
+        data['registered_office'] = clean_caps(raw_addr)
+        data['address_line_1'] = data['registered_office']
+        
+        pin_m = re.search(r'\b([1-9]\d{5})\b', data['registered_office'])
+        if pin_m:
+            data['pincode'] = pin_m.group(1)
+        if any(w in data['registered_office'] for w in ['TAMIL NADU', 'POLLACHI', 'COIMBATORE']):
+            data['state'] = 'TAMIL NADU'
+
+    # 4. Extract Members / Trustees Section with State Machine
+    m_sec_match = re.search(r'(?:MEMBERS?\s*OF\s*(?:THE)?\s*TRUST|BOARD\s*OF\s*TRUSTEES|TRUSTEES|PARTNERS)[\s\S]*', text, re.IGNORECASE)
+    if m_sec_match:
+        m_lines = m_sec_match.group(0).split('\n')
+        cur_num = None
+        cur_text = []
+        pending_prefix = ''
+        
+        for l in m_lines:
+            clean_l = l.strip()
+            # Standalone number like '1.' or '1)'
+            m_num = re.match(r'^(\d+)[\.\)]$', clean_l)
+            if m_num:
+                if cur_num and cur_text:
+                    data[f'member_{cur_num}'] = clean_caps(' '.join(cur_text))
+                cur_num = m_num.group(1)
+                cur_text = [pending_prefix] if pending_prefix else []
+                pending_prefix = ''
+            elif not cur_num and (clean_l.startswith('Mr.') or clean_l.startswith('Mrs.') or clean_l.startswith('Ms.')):
+                pending_prefix = clean_l
+            elif cur_num:
+                m_inline = re.match(r'^(\d+)[\.\)]\s*(.+)', clean_l)
+                if m_inline:
+                    if cur_text:
+                        data[f'member_{cur_num}'] = clean_caps(' '.join(cur_text))
+                    cur_num = m_inline.group(1)
+                    cur_text = [m_inline.group(2)]
+                else:
+                    cur_text.append(clean_l)
+                    
+        if cur_num and cur_text:
+            data[f'member_{cur_num}'] = clean_caps(' '.join(cur_text))
+            
+        # Parse individual Aadhaar numbers and strip trailing rubber stamps/signatures
+        for k in list(data.keys()):
+            if k.startswith('member_'):
+                # Strip trailing signature or stamp text after Aadhaar number (both 12-digit and 4-4-4)
+                m_clean = re.sub(r'((?:AADHAAR|AADHAR)[^\d]*(?:\d{4}\s*\d{4}\s*\d{4}|\d{12}))[\s\S]*', r'\1', data[k], flags=re.IGNORECASE)
+                data[k] = clean_caps(m_clean)
+                
+                uid_m = re.search(r'(?:AADHAAR|AADHAR)[^\d]*(\d{4}\s*\d{4}\s*\d{4}|\d{12})', data[k], re.IGNORECASE)
+                if uid_m:
+                    raw_uid = re.sub(r'\D', '', uid_m.group(1))
+                    if len(raw_uid) == 12:
+                        data[f'{k}_aadhaar'] = f"{raw_uid[:4]} {raw_uid[4:8]} {raw_uid[8:]}"
+
+    # 5. Extract Stamp / Document Registration Numbers if present
+    doc_no_m = re.search(r'DOCUMENT\s*NO\.?\s*[:=-]?\s*([0-9/\s-]+)', text, re.IGNORECASE)
+    if doc_no_m:
+        data['document_number'] = clean_caps(doc_no_m.group(1))
+
+    # 6. Entity & Contact Fallbacks
+    if not data.get('pincode'):
+        pin_m = re.search(r'\b([1-9]\d{5})\b', text)
+        if pin_m:
+            data['pincode'] = pin_m.group(1)
+
+    dates = re.findall(r'\b([0-3]?\d[/.-][0-1]?\d[/.-]\d{2,4})\b', text)
+    if dates and not data.get('date'):
+        data['date'] = clean_caps(dates[0])
+
+    # Ensure all values are strictly clean caps
+    return {k: clean_caps(v) for k, v in data.items() if v}
 
 
 def parse_aadhaar_ocr(lines: list) -> dict:
@@ -602,41 +766,47 @@ def extract_aadhaar_data(image_path: str) -> dict:
     results, _ = ocr(img if img is not None else image_path)
     lines = [item[1] for item in (results or [])]
 
-    # Auto-detect Document Type: Check if it's a PAN Card!
+    # Auto-detect Document Type:
+    # 1. PAN Card
     if is_pan_card(lines):
         pan_data = parse_pan_ocr(lines)
         return enrich_with_pan_fields(pan_data)
 
-    # Otherwise parse as Aadhaar Card
-    extracted = parse_aadhaar_ocr(lines)
-    extracted["document_type"] = "AADHAAR CARD"
+    # 2. Aadhaar Card
+    if is_aadhaar_card(lines):
+        extracted = parse_aadhaar_ocr(lines)
+        extracted["document_type"] = "AADHAAR CARD"
 
-    # 3. If neither Aadhaar nor DOB was found, attempt 90/180/270 degree rotation
-    if not extracted.get("aadhar_number") and not extracted.get("dob"):
-        if img is not None:
-            for angle in [90, 180, 270]:
-                rot_img = rotate_image(img, angle)
-                rot_results, _ = ocr(rot_img)
-                rot_lines = [item[1] for item in (rot_results or [])]
+        # If neither Aadhaar nor DOB was found, attempt 90/180/270 degree rotation
+        if not extracted.get("aadhar_number") and not extracted.get("dob"):
+            if img is not None:
+                for angle in [90, 180, 270]:
+                    rot_img = rotate_image(img, angle)
+                    rot_results, _ = ocr(rot_img)
+                    rot_lines = [item[1] for item in (rot_results or [])]
 
-                # Check if rotation revealed a PAN card
-                if is_pan_card(rot_lines):
-                    pan_data = parse_pan_ocr(rot_lines)
-                    return enrich_with_pan_fields(pan_data)
+                    # Check if rotation revealed a PAN card
+                    if is_pan_card(rot_lines):
+                        pan_data = parse_pan_ocr(rot_lines)
+                        return enrich_with_pan_fields(pan_data)
 
-                rot_extracted = parse_aadhaar_ocr(rot_lines)
-                rot_extracted["document_type"] = "AADHAAR CARD"
-                if rot_extracted.get("aadhar_number") or rot_extracted.get("dob"):
-                    extracted = rot_extracted
-                    break
+                    rot_extracted = parse_aadhaar_ocr(rot_lines)
+                    rot_extracted["document_type"] = "AADHAAR CARD"
+                    if rot_extracted.get("aadhar_number") or rot_extracted.get("dob"):
+                        extracted = rot_extracted
+                        break
 
-    # Merge partial QR data if available
-    if qr_data:
-        for k, v in qr_data.items():
-            if v and not extracted.get(k):
-                extracted[k] = v
+        # Merge partial QR data if available
+        if qr_data:
+            for k, v in qr_data.items():
+                if v and not extracted.get(k):
+                    extracted[k] = v
 
-    return enrich_with_pan_fields(extracted)
+        return enrich_with_pan_fields(extracted)
+
+    # 3. Any Other Document (Deed of Trust, Legal Agreements, Certificates, General Documents)
+    general_data = parse_general_document(lines)
+    return general_data
 
 
 # Alias function for clarity

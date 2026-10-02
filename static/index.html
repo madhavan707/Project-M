@@ -902,8 +902,8 @@
         </svg>
       </div>
       <div class="brand-info">
-        <h1>Aadhaar & PAN Vision Extractor</h1>
-        <p>100% Free &bull; Dynamic Deep OCR &bull; Google Sheets</p>
+        <h1>Universal Document & ID Vision Extractor</h1>
+        <p>100% Free &bull; Aadhaar &bull; PAN Card &bull; Deed of Trust &bull; Any Document</p>
       </div>
     </div>
 
@@ -931,7 +931,7 @@
       <div class="card-header">
         <div class="card-title">
           <svg class="card-title-icon" width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
-          <span>Document Scan (Aadhaar & PAN)</span>
+          <span>Document Scan (Aadhaar, PAN & Deeds)</span>
         </div>
         <span id="extraction-badge" class="pill-caps">Waiting for Upload</span>
       </div>
@@ -942,8 +942,8 @@
           <div class="dropzone-icon">
             <svg width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
           </div>
-          <h3>Select or Drop Aadhaar or PAN Cards</h3>
-          <p>Auto-detects Aadhaar and PAN cards with zero hardcoding (JPG, PNG, PDF)</p>
+          <h3>Select or Drop Any Document or ID Card</h3>
+          <p>Auto-detects Aadhaar, PAN, Deeds of Trust, Agreements & General Documents (JPG, PNG, PDF)</p>
         </div>
 
         <!-- Batch Cards Queue -->
@@ -997,9 +997,9 @@
         
         <!-- View Mode Presets Switcher -->
         <div class="view-tabs">
-          <button id="tab-mode-standard" class="view-tab active" onclick="switchPreset('standard')">🪪 Standard (Individual)</button>
-          <button id="tab-mode-pan" class="view-tab" onclick="switchPreset('pan')">📝 PAN 49A (Decomposed)</button>
-          <button id="tab-mode-all" class="view-tab" onclick="switchPreset('all')">📋 All Fields</button>
+          <button id="tab-mode-standard" class="view-tab active" onclick="switchPreset('standard')">🪪 Aadhaar / ID</button>
+          <button id="tab-mode-pan" class="view-tab" onclick="switchPreset('pan')">📝 PAN 49A</button>
+          <button id="tab-mode-all" class="view-tab" onclick="switchPreset('all')">📜 All Document Fields</button>
         </div>
       </div>
 
@@ -1669,18 +1669,23 @@ function testDoPost() {
 
       container.innerHTML = batchQueue.map((card, idx) => {
         const isActive = idx === activeIndex ? 'active' : '';
-        const isPan = card.data && (card.data.document_type === 'PAN CARD' || card.data.pan_number);
+        const docType = (card.data && card.data.document_type) || '';
+        const isPan = docType === 'PAN CARD' || (card.data && card.data.pan_number);
+        const isAadhaar = docType === 'AADHAAR CARD' || (card.data && card.data.aadhar_number);
+        
         const docBadge = isPan
           ? '<span style="background:rgba(56,189,248,0.18);color:#38bdf8;border:1px solid rgba(56,189,248,0.4);border-radius:4px;padding:1px 5px;font-size:0.6rem;font-weight:700;margin-left:4px;">PAN</span>'
-          : (card.data && card.data.aadhar_number ? '<span style="background:rgba(52,211,153,0.18);color:#34d399;border:1px solid rgba(52,211,153,0.4);border-radius:4px;padding:1px 5px;font-size:0.6rem;font-weight:700;margin-left:4px;">AADHAAR</span>' : '');
+          : (isAadhaar
+          ? '<span style="background:rgba(52,211,153,0.18);color:#34d399;border:1px solid rgba(52,211,153,0.4);border-radius:4px;padding:1px 5px;font-size:0.6rem;font-weight:700;margin-left:4px;">AADHAAR</span>'
+          : (docType ? `<span style="background:rgba(192,132,252,0.18);color:#c084fc;border:1px solid rgba(192,132,252,0.4);border-radius:4px;padding:1px 5px;font-size:0.6rem;font-weight:700;margin-left:4px;">${docType}</span>` : ''));
 
         const badgeText = card.status === 'pending' ? 'Pending' :
                           card.status === 'extracting' ? 'Extracting...' :
                           card.status === 'ready' ? 'Ready' :
                           card.status === 'synced' ? 'Synced ✓' : 'Error';
 
-        const displayName = card.data.full_name || card.filename;
-        const displaySub = isPan ? (card.data.pan_number || 'PAN Card') : (card.data.aadhar_number ? card.data.aadhar_number : `Card #${idx + 1}`);
+        const displayName = card.data.trust_name || card.data.name || card.data.full_name || card.filename;
+        const displaySub = card.data.registered_office || card.data.pan_number || card.data.aadhar_number || `Card #${idx + 1}`;
 
         return `
           <div class="batch-card-chip ${isActive}" onclick="selectCard(${idx})">
@@ -1693,7 +1698,7 @@ function testDoPost() {
             </div>
             <div class="chip-filename" title="${card.filename}">${card.filename}</div>
             <div class="chip-name" title="${displayName}">${displayName}</div>
-            <div style="font-size:0.68rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">${displaySub}</div>
+            <div style="font-size:0.68rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${displaySub}</div>
           </div>
         `;
       }).join('');
@@ -1722,9 +1727,11 @@ function testDoPost() {
         badge.innerText = 'Synced to Sheet ✓';
         badge.style.color = 'var(--cyan)';
       } else if (card.status === 'ready') {
-        const isPan = card.data && (card.data.document_type === 'PAN CARD' || card.data.pan_number);
-        badge.innerText = isPan ? 'PAN Card Ready ✓' : 'Aadhaar Ready ✓';
-        badge.style.color = isPan ? '#38bdf8' : '#34d399';
+        const docType = (card.data && card.data.document_type) || 'DOCUMENT';
+        badge.innerText = `${docType} Ready ✓`;
+        if (docType === 'PAN CARD') badge.style.color = '#38bdf8';
+        else if (docType === 'AADHAAR CARD') badge.style.color = '#34d399';
+        else badge.style.color = '#c084fc';
       } else if (card.status === 'extracting') {
         badge.innerText = 'Extracting...';
         badge.style.color = '#a5b4fc';
@@ -1775,13 +1782,22 @@ function testDoPost() {
         if (result.status === 'success') {
           card.data = result.data;
           card.status = 'ready';
-          const isPan = card.data && (card.data.document_type === 'PAN CARD' || card.data.pan_number);
+          const docType = (card.data && card.data.document_type) || 'DOCUMENT';
           if (idx === activeIndex) {
+            // If it is a Deed of Trust or General Document, auto-switch view to 'all' so all extracted fields appear!
+            if (docType !== 'AADHAAR CARD' && docType !== 'PAN CARD') {
+              activePreset = 'all';
+              document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
+              const allBtn = document.getElementById('tab-mode-all');
+              if (allBtn) allBtn.classList.add('active');
+            }
             renderFields();
             const badge = document.getElementById('extraction-badge');
-            badge.innerText = isPan ? 'PAN Card Ready ✓' : 'Aadhaar Ready ✓';
-            badge.style.color = isPan ? '#38bdf8' : '#34d399';
-            showToast(`Data extracted for ${card.filename} (${isPan ? 'PAN Card' : 'Aadhaar Card'})!`, 'success');
+            badge.innerText = `${docType} Ready ✓`;
+            if (docType === 'PAN CARD') badge.style.color = '#38bdf8';
+            else if (docType === 'AADHAAR CARD') badge.style.color = '#34d399';
+            else badge.style.color = '#c084fc';
+            showToast(`Data extracted for ${card.filename} (${docType})!`, 'success');
           }
         } else {
           card.status = 'error';
@@ -1900,26 +1916,50 @@ function testDoPost() {
       container.innerHTML = '';
 
       const data = getActiveCardData();
+      const docType = (data.document_type || '').toUpperCase();
+      const isGeneralDoc = docType && docType !== 'AADHAAR CARD' && docType !== 'PAN CARD';
       let fieldList = [];
 
-      if (activePreset === 'standard') {
-        fieldList = [...PRESET_DEFINITIONS.standard];
-      } else if (activePreset === 'pan') {
-        fieldList = [...PRESET_DEFINITIONS.pan];
-      } else {
-        // 'all' preset: list every non-internal key
-        Object.keys(data).forEach(k => {
-          if (!k.startsWith('_')) {
+      if (isGeneralDoc || activePreset === 'all') {
+        // Universal Document View: Prioritize all populated keys in document
+        const priorityOrder = [
+          'document_type', 'name', 'trust_name', 'full_name', 'registered_office',
+          'document_number', 'book_number', 'date', 'pincode', 'state',
+          'address_line_1', 'address_line_2'
+        ];
+        
+        // Add priority keys first if present in data
+        priorityOrder.forEach(k => {
+          if (data[k]) {
             const pretty = k.replace(/_/g, ' ').toUpperCase();
             fieldList.push({ key: k, label: pretty });
           }
         });
+
+        // Add member keys: member_1, member_2, member_3, etc.
+        Object.keys(data).filter(k => k.startsWith('member_')).sort().forEach(k => {
+          const pretty = k.replace(/_/g, ' ').toUpperCase();
+          fieldList.push({ key: k, label: pretty });
+        });
+
+        // Add all remaining non-internal keys
+        const added = new Set(fieldList.map(f => f.key));
+        Object.keys(data).forEach(k => {
+          if (!added.has(k) && !k.startsWith('_')) {
+            const pretty = k.replace(/_/g, ' ').toUpperCase();
+            fieldList.push({ key: k, label: pretty });
+          }
+        });
+      } else if (activePreset === 'standard') {
+        fieldList = [...PRESET_DEFINITIONS.standard];
+      } else if (activePreset === 'pan') {
+        fieldList = [...PRESET_DEFINITIONS.pan];
       }
 
       // Append any custom keys that user added or extracted that aren't already in fieldList
       const existingKeys = new Set(fieldList.map(f => f.key));
       Object.keys(data).forEach(k => {
-        if (!existingKeys.has(k) && !k.startsWith('_')) {
+        if (!existingKeys.has(k) && !k.startsWith('_') && data[k]) {
           const pretty = k.replace(/_/g, ' ').toUpperCase();
           fieldList.push({ key: k, label: pretty, isCustom: true });
         }
@@ -1929,7 +1969,7 @@ function testDoPost() {
         container.innerHTML = `
           <div style="grid-column: 1/-1; text-align:center; padding:36px 20px; color:var(--text-muted); font-size:0.85rem; background:rgba(15,23,42,0.4); border-radius:var(--radius-md); border:1px dashed var(--border-color);">
             <p style="margin-bottom:8px; font-weight:600; color:var(--text-main);">No fields to display</p>
-            <p>Upload an Aadhaar card to auto-extract, or click <button class="btn btn-xs btn-secondary" onclick="openAddFieldModal()" style="display:inline-flex; vertical-align:middle;">+ Add Field</button> to add your own.</p>
+            <p>Upload a document to auto-extract, or click <button class="btn btn-xs btn-secondary" onclick="openAddFieldModal()" style="display:inline-flex; vertical-align:middle;">+ Add Field</button> to add your own.</p>
           </div>
         `;
         return;
@@ -1939,10 +1979,10 @@ function testDoPost() {
         const key = item.key;
         const label = item.label || key.replace(/_/g, ' ').toUpperCase();
         const val = (data[key] || '').toUpperCase();
-        const isAddress = key.includes('address') || key.includes('addr');
+        const isLong = key.includes('address') || key.includes('addr') || key.includes('office') || key.startsWith('member_') || val.length > 40;
 
         const cardEl = document.createElement('div');
-        cardEl.className = `field-card-item ${isAddress ? 'full-width' : ''}`;
+        cardEl.className = `field-card-item ${isLong ? 'full-width' : ''}`;
         cardEl.id = `card-field-${key}`;
 
         const escapedVal = val.replace(/"/g, '&quot;');
@@ -1960,7 +2000,7 @@ function testDoPost() {
             </div>
           </div>
           <div class="field-input-box">
-            ${isAddress ? 
+            ${isLong ? 
               `<textarea id="input-field-${key}" class="input-field" rows="2" placeholder="${label}" oninput="handleFieldInput('${key}', this.value)">${val}</textarea>` :
               `<input type="text" id="input-field-${key}" class="input-field" placeholder="${label}" value="${escapedVal}" oninput="handleFieldInput('${key}', this.value)">`
             }

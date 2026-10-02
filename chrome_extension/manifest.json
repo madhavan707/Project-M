@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Aadhaar PAN Form Auto-Filler",
+  "version": "1.0",
+  "description": "Instant 1-Click Auto-Filler for Protean PAN Form 49A from Aadhaar Vision Extractor",
+  "permissions": [
+    "activeTab"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8000/*",
+    "https://*.proteantech.in/*",
+    "https://*.tin-nsdl.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.proteantech.in/*",
+        "https://*.tin-nsdl.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,2597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aadhaar Dynamic Extractor & Google Sheets Pipeline</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #090d16;
+      --bg-surface: #0f172a;
+      --bg-card: rgba(30, 41, 59, 0.7);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(99, 102, 241, 0.4);
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-glow: rgba(99, 102, 241, 0.25);
+      --emerald: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.2);
+      --cyan: #06b6d4;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --radius-lg: 16px;
+      --radius-md: 10px;
+      --radius-sm: 6px;
+      --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.08) 0%, transparent 40%);
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 36px;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--cyan));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .brand-icon svg {
+      width: 22px;
+      height: 22px;
+      fill: #ffffff;
+    }
+
+    .brand-info h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #ffffff, #93c5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-info p {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #34d399;
+      box-shadow: 0 0 8px #34d399;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 9px 18px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid transparent;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-color);
+      color: var(--text-main);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--border-hover);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #4338ca);
+      color: #ffffff;
+      box-shadow: 0 4px 15px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px var(--accent-glow);
+    }
+
+    .btn-emerald {
+      background: linear-gradient(135deg, var(--emerald), #059669);
+      color: #ffffff;
+      box-shadow: 0 4px 15px var(--emerald-glow);
+    }
+
+    .btn-emerald:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px var(--emerald-glow);
+    }
+
+    .btn-gradient {
+      background: linear-gradient(135deg, #8b5cf6, #d946ef);
+      color: #ffffff;
+      box-shadow: 0 4px 15px rgba(217, 70, 239, 0.25);
+    }
+
+    .btn-gradient:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(217, 70, 239, 0.35);
+    }
+
+    .batch-chips-wrapper {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 4px 2px 8px 2px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(99, 102, 241, 0.3) transparent;
+    }
+    .batch-chips-wrapper::-webkit-scrollbar {
+      height: 6px;
+    }
+    .batch-chips-wrapper::-webkit-scrollbar-thumb {
+      background: rgba(99, 102, 241, 0.3);
+      border-radius: 999px;
+    }
+
+    .batch-card-chip {
+      flex: 0 0 auto;
+      width: 175px;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+    .batch-card-chip:hover {
+      border-color: var(--accent);
+      background: rgba(30, 41, 59, 0.8);
+      transform: translateY(-2px);
+    }
+    .batch-card-chip.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+      background: rgba(99, 102, 241, 0.12);
+    }
+    .chip-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .chip-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+    }
+    .chip-badge.pending {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .chip-badge.extracting {
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      animation: pulse 1.5s infinite;
+    }
+    .chip-badge.ready {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .chip-badge.synced {
+      background: rgba(6, 182, 212, 0.15);
+      color: #22d3ee;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+    .chip-badge.error {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .chip-del {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 0 2px;
+      line-height: 1;
+    }
+    .chip-del:hover {
+      color: #f87171;
+    }
+    .chip-filename {
+      font-size: 0.72rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-main);
+    }
+    .chip-name {
+      font-size: 0.68rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+
+    main {
+      flex: 1;
+      padding: 24px 36px;
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1.25fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 1024px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    .card-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-title-icon {
+      color: var(--accent);
+    }
+
+    .pill-caps {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      color: #a5b4fc;
+      text-transform: uppercase;
+    }
+
+    .card-body {
+      padding: 24px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .dropzone {
+      border: 2px dashed rgba(255, 255, 255, 0.15);
+      border-radius: var(--radius-md);
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(15, 23, 42, 0.3);
+      position: relative;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(99, 102, 241, 0.05);
+      transform: scale(1.005);
+    }
+
+    .dropzone-icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 12px;
+      border-radius: 50%;
+      background: rgba(99, 102, 241, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+    }
+
+    .dropzone h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .dropzone p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .preview-container {
+      position: relative;
+      border-radius: var(--radius-md);
+      background: #020617;
+      border: 1px solid var(--border-color);
+      overflow: hidden;
+      min-height: 380px;
+      max-height: 540px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .preview-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--text-muted);
+      padding: 40px;
+      text-align: center;
+    }
+
+    .preview-image {
+      max-width: 100%;
+      max-height: 520px;
+      object-fit: contain;
+      transition: transform 0.2s ease;
+      display: none;
+    }
+
+    .image-controls {
+      position: absolute;
+      bottom: 14px;
+      right: 14px;
+      display: none;
+      gap: 8px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    .ctrl-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ctrl-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--accent);
+    }
+
+    .fields-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .full-width {
+      grid-column: span 2;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .copy-chip {
+      cursor: pointer;
+      font-size: 0.68rem;
+      color: var(--cyan);
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+
+    .copy-chip:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+
+    .field-input-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-field {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      color: var(--text-main);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      transition: all 0.2s ease;
+    }
+
+    .input-field:focus {
+      border-color: var(--accent);
+      outline: none;
+      box-shadow: 0 0 0 3px var(--accent-glow);
+      background: rgba(15, 23, 42, 0.95);
+    }
+
+    textarea.input-field {
+      resize: vertical;
+      min-height: 54px;
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1.4;
+    }
+
+    /* Dynamic Field Manager & Tabs */
+    .view-tabs {
+      display: flex;
+      gap: 4px;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 3px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+    }
+    .view-tab {
+      padding: 5px 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-radius: var(--radius-sm);
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .view-tab:hover {
+      color: var(--text-main);
+    }
+    .view-tab.active {
+      color: #ffffff;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    /* CDP Command Banner */
+    .cdp-command-bar {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.98));
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    }
+    .cdp-status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+    }
+    .cdp-status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-weight: 600;
+    }
+    .cdp-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #94a3b8;
+      transition: all 0.3s;
+    }
+    .cdp-status-dot.connected {
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+    .cdp-steps-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    /* Fields Toolbar */
+    .fields-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .btn-xs {
+      padding: 5px 10px;
+      font-size: 0.73rem;
+      border-radius: var(--radius-sm);
+    }
+
+    /* Dynamic Field Cards */
+    .field-card-item {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 9px 11px;
+      transition: all 0.2s ease;
+    }
+    .field-card-item:hover {
+      border-color: var(--border-hover);
+      background: rgba(30, 41, 59, 0.65);
+    }
+    .field-card-item.full-width {
+      grid-column: 1 / -1;
+    }
+    .field-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .field-card-label {
+      font-size: 0.73rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      user-select: none;
+    }
+    .field-card-label .edit-label-btn {
+      opacity: 0;
+      cursor: pointer;
+      font-size: 0.7rem;
+      color: var(--cyan);
+      transition: opacity 0.2s;
+    }
+    .field-card-item:hover .field-card-label .edit-label-btn {
+      opacity: 1;
+    }
+    .field-card-actions {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+    .chip-btn {
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .chip-copy {
+      background: rgba(6, 182, 212, 0.12);
+      color: #67e8f9;
+      border-color: rgba(6, 182, 212, 0.3);
+    }
+    .chip-copy:hover {
+      background: rgba(6, 182, 212, 0.25);
+    }
+    .chip-fill {
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc;
+      border-color: rgba(99, 102, 241, 0.35);
+    }
+    .chip-fill:hover {
+      background: rgba(99, 102, 241, 0.3);
+      color: #ffffff;
+    }
+    .chip-del {
+      background: rgba(239, 68, 68, 0.12);
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+    .chip-del:hover {
+      background: rgba(239, 68, 68, 0.25);
+      color: #ef4444;
+    }
+
+    /* Suggestion pills in add modal */
+    .suggest-pills {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    .suggest-pill {
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .suggest-pill:hover {
+      background: rgba(99, 102, 241, 0.2);
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+
+    .actions-bar {
+      margin-top: auto;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .status-alert {
+      padding: 10px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      font-weight: 500;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-alert.success {
+      display: flex;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+    }
+
+    .status-alert.error {
+      display: flex;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 20px;
+    }
+
+    .modal-backdrop.active {
+      display: flex;
+    }
+
+    .modal-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 650px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.3rem;
+      line-height: 1;
+    }
+
+    .modal-body {
+      padding: 24px;
+      max-height: 75vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .code-block {
+      background: #020617;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: #93c5fd;
+      overflow-x: auto;
+      white-space: pre;
+      position: relative;
+    }
+
+    .btn-copy-code {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border-color);
+      color: #ffffff;
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-copy-code:hover {
+      background: var(--accent);
+    }
+
+    .spinner {
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-left-color: #ffffff;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .btn.loading .spinner {
+      display: inline-block;
+    }
+    .btn.loading .btn-text {
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm6 12H6v-1c0-2 4-3.1 6-3.1s6 1.1 6 3.1v1z"/>
+        </svg>
+      </div>
+      <div class="brand-info">
+        <h1>Aadhaar Vision Extractor</h1>
+        <p>100% Free &bull; Dynamic Deep OCR &bull; Google Sheets</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="badge-status">
+        <span class="pulse-dot"></span>
+        <span>DYNAMIC ENGINE ACTIVE</span>
+      </div>
+
+      <button id="open-sheets-modal-btn" class="btn btn-secondary" onclick="openSheetsModal()">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+        <span>Sheets Setup</span>
+      </button>
+
+      <button id="open-autofill-modal-btn" class="btn btn-secondary" onclick="openAutofillModal()">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+        <span>Site Autofill</span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Left Column: Image Upload & Visual Verification -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <svg class="card-title-icon" width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+          <span>Aadhaar Document Scan</span>
+        </div>
+        <span id="extraction-badge" class="pill-caps">Waiting for Upload</span>
+      </div>
+
+      <div class="card-body">
+        <div id="dropzone" class="dropzone" onclick="document.getElementById('file-input').click()">
+          <input type="file" id="file-input" style="display:none" accept="image/*,.pdf" multiple onchange="handleFileSelect(event)">
+          <div class="dropzone-icon">
+            <svg width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+          </div>
+          <h3>Select or Drop Multiple Aadhaar Cards</h3>
+          <p>Process 1 or multiple cards at once (JPG, PNG, PDF)</p>
+        </div>
+
+        <!-- Batch Cards Queue -->
+        <div id="batch-container" style="display:none; flex-direction:column; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em;">Card Queue</span>
+              <span id="batch-counter" class="pill-caps" style="background:rgba(6,182,212,0.12); border-color:rgba(6,182,212,0.3); color:var(--cyan); font-size:0.68rem; padding:2px 8px;">0 Cards</span>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button id="extract-all-btn" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="extractAllPending()">
+                ⚡ Extract All Pending
+              </button>
+              <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem; color:#f87171;" onclick="clearBatchQueue()">
+                Clear
+              </button>
+            </div>
+          </div>
+          <div id="batch-chips-container" class="batch-chips-wrapper"></div>
+        </div>
+
+
+        <div class="preview-container" id="preview-box">
+          <div id="preview-placeholder" class="preview-empty-state">
+            <svg width="48" height="48" fill="currentColor" style="opacity: 0.3;" viewBox="0 0 24 24"><path d="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-4.86 8.86l-3 3.87L9 13.14 6 17h12l-3.86-5.14z"/></svg>
+            <p>Uploaded card preview will appear here</p>
+          </div>
+          <img id="preview-img" class="preview-image" alt="Aadhaar Card Preview">
+          <div id="img-controls" class="image-controls">
+            <button class="ctrl-btn" title="Rotate Left" onclick="rotateImage(-90)">&#x21ba;</button>
+            <button class="ctrl-btn" title="Rotate Right" onclick="rotateImage(90)">&#x21bb;</button>
+            <button class="ctrl-btn" title="Zoom In" onclick="zoomImage(1.2)">&#x2b;</button>
+            <button class="ctrl-btn" title="Zoom Out" onclick="zoomImage(0.8)">&minus;</button>
+          </div>
+        </div>
+
+        <button id="extract-btn" class="btn btn-primary" style="width: 100%; padding: 12px;" onclick="runExtraction()" disabled>
+          <span class="spinner" id="extract-spinner"></span>
+          <span class="btn-text" id="extract-btn-text">Extract Data</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Column: Extracted Fields & Direct Browser Autofill -->
+    <div class="card">
+      <div class="card-header" style="flex-wrap: wrap; gap: 8px;">
+        <div class="card-title">
+          <svg class="card-title-icon" width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+          <span>Extracted Fields</span>
+        </div>
+        
+        <!-- View Mode Presets Switcher -->
+        <div class="view-tabs">
+          <button id="tab-mode-standard" class="view-tab active" onclick="switchPreset('standard')">🪪 Standard (Individual)</button>
+          <button id="tab-mode-pan" class="view-tab" onclick="switchPreset('pan')">📝 PAN 49A (Decomposed)</button>
+          <button id="tab-mode-all" class="view-tab" onclick="switchPreset('all')">📋 All Fields</button>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <div id="status-toast" class="status-alert"></div>
+
+        <!-- Direct Browser Autofill Command Bar (No Sheets needed!) -->
+        <div class="cdp-command-bar">
+          <div class="cdp-status-row">
+            <div class="cdp-status-indicator">
+              <span id="cdp-dot" class="cdp-status-dot"></span>
+              <span id="cdp-tab-info" style="color:var(--text-main);">Checking browser connection...</span>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <button id="btn-launch-chrome" class="btn btn-xs btn-emerald" onclick="launchConnectedChrome()" style="display:none;" title="Launch Chrome with debugging port 9222">
+                🚀 Launch Chrome (Port 9222)
+              </button>
+              <button class="btn btn-xs btn-secondary" onclick="checkCDPStatus(true)" title="Refresh Chrome connection status">
+                <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                <span>Refresh Status</span>
+              </button>
+              <button class="btn btn-xs btn-emerald" onclick="copyActiveCardConsoleSnippet()" title="Copy instant paste script for your open DevTools console">
+                📋 Copy Console Script
+              </button>
+              <button class="btn btn-xs btn-secondary" onclick="openAutofillGuideModal()" title="View Console autofill script">
+                <span>Guide</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="cdp-steps-row">
+            <button id="btn-cdp-all" class="btn btn-primary btn-xs" style="background:linear-gradient(135deg, #6366f1, #06b6d4);" onclick="triggerCDPFill('all')">
+              ⚡ Fill All Fields into Browser
+            </button>
+            <button class="btn btn-secondary btn-xs" onclick="triggerCDPFill('applicant')" title="Fill Name & Gender">
+              👤 Name & Gender
+            </button>
+            <button class="btn btn-secondary btn-xs" onclick="triggerCDPFill('father')" title="Fill Father details">
+              👨 Father
+            </button>
+            <button class="btn btn-secondary btn-xs" onclick="triggerCDPFill('contact')" title="Fill DOB & Mobile">
+              🎂 DOB & Mobile
+            </button>
+            <button class="btn btn-secondary btn-xs" onclick="triggerCDPFill('address')" title="Fill Address, State & PIN">
+              🏠 Address & PIN
+            </button>
+            <button class="btn btn-secondary btn-xs" onclick="triggerCDPFill('proofs')" title="Fill Aadhaar number">
+              🪪 Aadhaar / Proofs
+            </button>
+          </div>
+        </div>
+
+        <!-- Field Actions Toolbar (Add / Edit / Remove) -->
+        <div class="fields-toolbar">
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button class="btn btn-secondary btn-xs" onclick="openAddFieldModal()" style="border-color:rgba(16,185,129,0.4); color:#34d399;">
+              <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              <span>Add Field</span>
+            </button>
+            <button class="btn btn-secondary btn-xs" onclick="restoreDefaultFields()" title="Restore default field view">
+              <span>Restore Defaults</span>
+            </button>
+          </div>
+
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button class="btn btn-secondary btn-xs" onclick="copyAllFieldsText()" title="Copy all fields to clipboard">
+              <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+              <span>Copy All Text</span>
+            </button>
+            <button class="btn btn-secondary btn-xs" onclick="saveRecordToServer()" title="Save edits to server">
+              <span>Save Edits</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Dynamic Fields Container -->
+        <div id="fields-container" class="fields-grid">
+          <!-- Dynamically populated via JavaScript renderFields() -->
+        </div>
+
+        <!-- Action Bar at the Bottom -->
+        <div class="actions-bar">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="download-csv-btn" class="btn btn-secondary" onclick="downloadCSV()">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              <span>Download CSV</span>
+            </button>
+            <button class="btn btn-secondary" onclick="copyJSON()">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+              <span>Copy JSON</span>
+            </button>
+          </div>
+
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-secondary" onclick="openSheetsModal()" title="Optional Google Sheets Sync">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+              <span>Google Sheet (Optional)</span>
+            </button>
+            <button class="btn btn-emerald" onclick="copyActiveCardConsoleSnippet()" title="Copy ready-to-run console script with active card's values (Zero CSP issues!)">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+              <span>📋 Copy Console Script</span>
+            </button>
+            <button id="cdp-auto-fill-btn" class="btn btn-primary" onclick="triggerCDPFill('all')" title="Directly fill data into opened tab">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/></svg>
+              <span>🚀 Autofill Browser</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- Add Field Modal -->
+  <div id="add-field-modal" class="modal-backdrop">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 class="modal-title">➕ Add Custom Field</h3>
+        <button class="modal-close" onclick="closeAddFieldModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <label class="field-label">Field Name / Label</label>
+          <input type="text" id="new-field-label" class="input-field" placeholder="e.g. Email, PAN Number, Voter ID" style="text-transform: none;">
+          <div class="suggest-pills">
+            <span class="suggest-pill" onclick="setAddSuggestion('Email', 'email')">Email</span>
+            <span class="suggest-pill" onclick="setAddSuggestion('PAN Number', 'pan_number')">PAN Number</span>
+            <span class="suggest-pill" onclick="setAddSuggestion('Voter ID', 'voter_id')">Voter ID</span>
+            <span class="suggest-pill" onclick="setAddSuggestion('Ration Card', 'ration_card')">Ration Card</span>
+            <span class="suggest-pill" onclick="setAddSuggestion('Spouse Name', 'spouse_name')">Spouse Name</span>
+            <span class="suggest-pill" onclick="setAddSuggestion('District', 'district')">District</span>
+            <span class="suggest-pill" onclick="setAddSuggestion('Alternate Mobile', 'alt_mobile')">Alternate Mobile</span>
+          </div>
+        </div>
+
+        <div class="field-group" style="margin-top: 14px;">
+          <label class="field-label">Field Value</label>
+          <input type="text" id="new-field-value" class="input-field" placeholder="VALUE" oninput="this.value = this.value.toUpperCase()">
+        </div>
+
+        <div style="display:flex; justify-content: flex-end; gap: 8px; margin-top: 18px;">
+          <button class="btn btn-secondary" onclick="closeAddFieldModal()">Cancel</button>
+          <button class="btn btn-emerald" onclick="submitAddField()">Add to Record</button>
+        </div>
+  </div>
+
+  <!-- Autofill Guide & Console Snippet Modal -->
+  <div id="autofill-guide-modal" class="modal-backdrop">
+    <div class="modal-card" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 class="modal-title">⚡ How to Fill Your Opened Portal Tab</h3>
+        <button class="modal-close" onclick="closeAutofillGuideModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
+          Choose whichever method is easiest for you:
+        </p>
+
+        <!-- Method 1 -->
+        <div style="background:rgba(15,23,42,0.7); border:1px solid rgba(99,102,241,0.35); border-radius:var(--radius-md); padding:14px; margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-weight:700; font-size:0.85rem; color:#a5b4fc;">Option 1: Paste in DevTools Console (Zero Setup & 100% Reliable!)</span>
+            <span class="chip-btn chip-fill">Bypasses CSP & Mixed Content</span>
+          </div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
+            Since you already have Chrome DevTools open next to your PAN portal:
+          </p>
+          <ol style="font-size:0.8rem; color:var(--text-muted); margin-left:18px; margin-bottom:10px; display:flex; flex-direction:column; gap:4px;">
+            <li>Click <b>Copy Script</b> below. All extracted details are already embedded.</li>
+            <li>In your console, if Chrome warns about pasting, type <code style="color:#67e8f9;">allow pasting</code> and hit Enter.</li>
+            <li>Press <b>Ctrl+V</b> then <b>Enter</b> in the console. All fields will instantly turn green!</li>
+          </ol>
+          <div class="code-block" style="margin-bottom:8px; max-height:220px; overflow-y:auto;">
+            <button class="btn-copy-code" onclick="copyActiveCardConsoleSnippet()">Copy Script</button>
+<pre id="console-snippet-text">// Script will populate dynamically</pre>
+          </div>
+          <p style="font-size:0.75rem; color:#34d399;">✓ Pure in-page DOM injection: Zero fetch, zero eval, zero CSP restrictions!</p>
+        </div>
+
+        <!-- Method 2 -->
+        <div style="background:rgba(15,23,42,0.7); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-weight:700; font-size:0.85rem; color:var(--text-main);">Option 2: 1-Click Launch Chrome (Port 9222)</span>
+          </div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+            Click below to launch an automated Chrome window connected directly to the web app:
+          </p>
+          <button class="btn btn-emerald btn-xs" onclick="launchConnectedChrome(); closeAutofillGuideModal();">
+            🚀 Launch Connected Chrome Window
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </main>
+
+  <!-- Google Sheets Setup Modal -->
+  <div id="sheets-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Connect Your Google Sheet</h3>
+        <button class="modal-close" onclick="closeSheetsModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-muted);">
+          Your Sheet: <a href="https://docs.google.com/spreadsheets/d/1zixuE5b8pdG5mfRbJdEZCkUEEJKKGeiQdtWspMe_H98/edit?gid=0#gid=0" target="_blank" style="color: var(--cyan); text-decoration: underline;">Sample Individual (Click to Open)</a>
+        </p>
+        <ol style="font-size: 0.82rem; color: var(--text-muted); margin-left: 18px; display: flex; flex-direction: column; gap: 8px;">
+          <li>In your Google Sheet, click <b>Extensions</b> &rarr; <b>Apps Script</b>.</li>
+          <li>Paste the code snippet below and click <b>Save</b> (💾).</li>
+          <li>Click <b>Deploy</b> &rarr; <b>New deployment</b>. Select type: <b>Web app</b>.</li>
+          <li>Set <b>Who has access</b> to <b>Anyone</b>, then click <b>Deploy</b>.</li>
+          <li>Copy the <b>Web app URL</b> (ends in <code>/exec</code>) and paste it below.</li>
+        </ol>
+
+        <div class="code-block">
+          <button class="btn-copy-code" onclick="copyAppsScriptCode()">Copy Script</button>
+<pre id="apps-script-code">function doPost(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    
+    if (!e || !e.postData || !e.postData.contents) {
+      return ContentService.createTextOutput(JSON.stringify({ 
+        status: "error", 
+        message: "No POST data received. This function triggers via HTTP POST." 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var payload = JSON.parse(e.postData.contents);
+    var records = Array.isArray(payload) ? payload : (payload.records || [payload]);
+
+    // 15 Capitalized Headers without TIMESTAMP
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow([
+        "AADHAAR NUMBER",
+        "APPLICANT FIRST NAME",
+        "APPLICANT MIDDLE NAME",
+        "APPLICANT LAST NAME",
+        "NAME AS PER AADHAAR",
+        "FATHER FIRST NAME",
+        "FATHER MIDDLE NAME",
+        "FATHER LAST NAME",
+        "DOB",
+        "GENDER",
+        "MOBILE NUMBER",
+        "ADDRESS LINE 1",
+        "ADDRESS LINE 2",
+        "PINCODE",
+        "STATE"
+      ]);
+    }
+
+    // Append all records in CAPITAL CASE
+    records.forEach(function(item) {
+      sheet.appendRow([
+        String(item.aadhar_number || "").toUpperCase(),
+        String(item.applicant_first_name || "").toUpperCase(),
+        String(item.applicant_middle_name || "").toUpperCase(),
+        String(item.applicant_last_name || "").toUpperCase(),
+        String(item.name_as_per_aadhar || item.full_name || "").toUpperCase(),
+        String(item.father_first_name || "").toUpperCase(),
+        String(item.father_middle_name || "").toUpperCase(),
+        String(item.father_last_name || "").toUpperCase(),
+        String(item.dob || "").toUpperCase(),
+        String(item.gender || "").toUpperCase(),
+        String(item.mobile_number || "").toUpperCase(),
+        String(item.address_line_1 || "").toUpperCase(),
+        String(item.address_line_2 || "").toUpperCase(),
+        String(item.pincode || "").toUpperCase(),
+        String(item.state || "").toUpperCase()
+      ]);
+    });
+
+    return ContentService.createTextOutput(JSON.stringify({ 
+      status: "success", 
+      count: records.length 
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ 
+      status: "error", 
+      error: err.toString() 
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// Function to test directly from Apps Script editor
+function testDoPost() {
+  var mockEvent = {
+    postData: {
+      contents: JSON.stringify([{
+        aadhar_number: "3343 5239 9514",
+        applicant_first_name: "VIJAYAN",
+        applicant_middle_name: "",
+        applicant_last_name: "KAILASH",
+        name_as_per_aadhar: "V KAILASH",
+        father_first_name: "VIJAYAN",
+        father_middle_name: "",
+        father_last_name: "UNNI",
+        dob: "14/11/2007",
+        gender: "MALE",
+        mobile_number: "9842049534",
+        address_line_1: "7D, KONDASAMY NAIDU STREET 3",
+        address_line_2: "VELANDIPALAYAM, COIMBATORE",
+        pincode: "641025",
+        state: "TAMIL NADU"
+      }])
+    }
+  };
+  var res = doPost(mockEvent);
+  Logger.log(res.getContent());
+}</pre>
+
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Google Apps Script Webhook URL</label>
+          <input type="text" id="webhook-input" class="input-field" placeholder="https://script.google.com/macros/s/.../exec" style="text-transform: none;">
+        </div>
+
+        <button class="btn btn-primary" onclick="saveWebhookUrl()">Save Webhook URL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Downstream Portal Autofill Modal -->
+  <div id="autofill-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Phase 2: One-Click Portal Autofill</h3>
+        <button class="modal-close" onclick="closeAutofillModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-muted);">
+          Use this free Tampermonkey / Chrome Userscript on your target PAN or government portal. It fetches the currently extracted record dynamically from your local tool and automatically fills all inputs in <b>CAPITAL CASE</b>!
+        </p>
+
+        <div class="code-block">
+          <button class="btn-copy-code" onclick="copyUserscriptCode()">Copy Userscript</button>
+<pre id="userscript-code">// ==UserScript==
+// @name         Aadhaar to PAN Auto-Filler (Step-by-Step + 1-Click)
+// @namespace    http://tampermonkey.net/
+// @version      2.0
+// @description  Autofills PAN form fields dynamically in CAPITAL CASE with step-by-step chat/button control
+// @match        *://*/*
+// @grant        GM_xmlhttpRequest
+// ==/UserScript==
+
+(function() {
+    'use strict';
+    let cachedData = null;
+    let currentStep = 0;
+    const steps = ['applicant', 'parents', 'contact', 'address', 'proofs'];
+
+    // Create Floating Assistant Widget
+    const panel = document.createElement('div');
+    panel.id = 'pan-autofill-panel';
+    panel.style = 'position:fixed;bottom:24px;right:24px;z-index:999999;background:rgba(15,23,42,0.95);border:1px solid rgba(99,102,241,0.4);border-radius:12px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:8px;font-family:sans-serif;width:240px;backdrop-filter:blur(10px);color:#fff;';
+
+    panel.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:6px;">
+        <span style="font-weight:700;font-size:12px;letter-spacing:0.04em;color:#a5b4fc;">⚡ PAN AUTO-FILLER</span>
+        <span id="pan-status-text" style="font-size:10px;color:#34d399;">Ready</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <button id="btn-fill-app" style="padding:6px;font-size:11px;font-weight:600;background:#312e81;color:#e0e7ff;border:1px solid #4338ca;border-radius:6px;cursor:pointer;">1. Applicant</button>
+        <button id="btn-fill-fat" style="padding:6px;font-size:11px;font-weight:600;background:#312e81;color:#e0e7ff;border:1px solid #4338ca;border-radius:6px;cursor:pointer;">2. Father</button>
+        <button id="btn-fill-con" style="padding:6px;font-size:11px;font-weight:600;background:#312e81;color:#e0e7ff;border:1px solid #4338ca;border-radius:6px;cursor:pointer;">3. Contact</button>
+        <button id="btn-fill-prf" style="padding:6px;font-size:11px;font-weight:600;background:#312e81;color:#e0e7ff;border:1px solid #4338ca;border-radius:6px;cursor:pointer;">4. Proofs</button>
+      </div>
+      <button id="btn-fill-all" style="padding:8px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#6366f1,#06b6d4);color:#fff;border:none;border-radius:6px;cursor:pointer;box-shadow:0 2px 10px rgba(99,102,241,0.3);">⚡ Fill All Fields</button>
+      <div style="font-size:9px;color:#94a3b8;text-align:center;">Press <b>Alt + N</b> for next section</div>
+    `;
+    document.body.appendChild(panel);
+
+    const logStatus = (msg) => {
+        const s = document.getElementById('pan-status-text');
+        if (s) s.innerText = msg;
+    };
+
+    const fetchData = (cb) => {
+        if (cachedData) { cb(cachedData); return; }
+        logStatus('Fetching data...');
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: 'http://127.0.0.1:8000/api/latest-record',
+            onload: function(res) {
+                try {
+                    cachedData = JSON.parse(res.responseText);
+                    logStatus('Data Loaded');
+                    cb(cachedData);
+                } catch(e) { logStatus('Fetch Error'); }
+            },
+            onerror: function() { logStatus('Offline (8000)'); }
+        });
+    };
+
+    const setText = (selectors, val) => {
+        if (!val) return;
+        for (const s of selectors) {
+            const el = document.querySelector(s);
+            if (el) {
+                el.focus();
+                el.value = String(val).toUpperCase();
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                el.dispatchEvent(new Event('blur', { bubbles: true }));
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const setSelect = (selectors, matchText) => {
+        if (!matchText) return;
+        const search = String(matchText).toUpperCase().trim();
+        for (const s of selectors) {
+            const sel = document.querySelector(s);
+            if (sel && sel.tagName === 'SELECT') {
+                for (let i = 0; i < sel.options.length; i++) {
+                    const opt = sel.options[i];
+                    if (opt.text.toUpperCase().includes(search) || opt.value.toUpperCase().includes(search)) {
+                        sel.selectedIndex = i;
+                        sel.dispatchEvent(new Event('change', { bubbles: true }));
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    };
+
+    const setRadio = (matchTexts) => {
+        const radios = Array.from(document.querySelectorAll('input[type="radio"]'));
+        for (const r of radios) {
+            const parentText = (r.parentElement ? r.parentElement.innerText : '').toUpperCase();
+            const val = (r.value || '').toUpperCase();
+            if (matchTexts.some(t => parentText.includes(t.toUpperCase()) || val.includes(t.toUpperCase()))) {
+                r.click();
+                r.dispatchEvent(new Event('change', { bubbles: true }));
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const fillSection = (section, d) => {
+        if (section === 'applicant' || section === 'all') {
+            setSelect(['select[name*="category" i]', '#category'], 'Individual');
+            setText(['input[name*="first" i]', 'input[placeholder*="First Name" i]'], d.applicant_first_name);
+            setText(['input[name*="middle" i]', 'input[placeholder*="Middle Name" i]'], d.applicant_middle_name);
+            setText(['input[name*="last" i]', 'input[name*="surname" i]', 'input[placeholder*="Last Name" i]'], d.applicant_last_name);
+            setText(['input[name*="nameaspaadhar" i]', 'input[name*="aadhaarname" i]'], d.name_as_per_aadhar || d.full_name);
+            logStatus('Applicant Filled');
+        }
+        if (section === 'parents' || section === 'all') {
+            setRadio(['No']);
+            setRadio(['Father']);
+            setText(['input[name*="fatfirst" i]', 'input[name*="fatherfirst" i]'], d.father_first_name);
+            setText(['input[name*="fatmiddle" i]', 'input[name*="fathermiddle" i]'], d.father_middle_name);
+            setText(['input[name*="fatlast" i]', 'input[name*="fatherlast" i]', 'input[name*="fathersurname" i]'], d.father_last_name);
+            logStatus('Father Filled');
+        }
+        if (section === 'contact' || section === 'all') {
+            setText(['input[name*="dob" i]', 'input[placeholder*="dd/MM/yyyy" i]'], d.dob);
+            setSelect(['select[name*="resident" i]'], 'Resident');
+            setSelect(['select[name*="isd" i]', 'select[name*="country" i]'], '91');
+            setText(['input[name*="mobile" i]', 'input[placeholder*="Mobile" i]'], d.mobile_number);
+            setSelect(['select[name*="communication" i]'], 'Residence');
+            setSelect(['select[name*="state" i]', 'select[name*="dispatch" i]'], d.state || 'TAMIL NADU');
+            setText(['input[name*="pin" i]', 'input[placeholder*="PIN" i]'], d.pincode);
+            logStatus('Contact Filled');
+        }
+        if (section === 'proofs' || section === 'all') {
+            setSelect(['select[name*="aadhaar" i]'], 'Aadhaar');
+            const cleanUid = (d.aadhar_number || '').replace(/\\s+/g, '');
+            setText(['input[name*="aadhaar" i]', 'input[name*="uid" i]'], cleanUid);
+            setSelect(['select[name*="identity" i]', 'select[name*="poi" i]'], 'Aadhaar');
+            setSelect(['select[name*="address" i]', 'select[name*="poa" i]'], 'Aadhaar');
+            setSelect(['select[name*="dobproof" i]', 'select[name*="pod" i]'], 'Aadhaar');
+            logStatus('Proofs Filled');
+        }
+    };
+
+    document.getElementById('btn-fill-app').onclick = () => fetchData(d => fillSection('applicant', d));
+    document.getElementById('btn-fill-fat').onclick = () => fetchData(d => fillSection('parents', d));
+    document.getElementById('btn-fill-con').onclick = () => fetchData(d => fillSection('contact', d));
+    document.getElementById('btn-fill-prf').onclick = () => fetchData(d => fillSection('proofs', d));
+    document.getElementById('btn-fill-all').onclick = () => fetchData(d => fillSection('all', d));
+
+    window.addEventListener('keydown', (e) => {
+        if (e.altKey && (e.key === 'n' || e.key === 'N')) {
+            e.preventDefault();
+            fetchData(d => {
+                fillSection(steps[currentStep % steps.length], d);
+                currentStep++;
+            });
+        }
+    });
+})();</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let batchQueue = []; // Array of { id, file, filename, previewUrl, status: 'pending'|'extracting'|'ready'|'synced'|'error', data: {...} }
+    let activeIndex = -1;
+    let currentZoom = 1;
+    let currentRotation = 0;
+    let activePreset = 'standard'; // 'standard' (Individual) by default, or 'pan', or 'all'
+    let autoSaveTimer = null;
+
+    const PRESET_DEFINITIONS = {
+      standard: [
+        { key: 'full_name', label: 'Full Name' },
+        { key: 'aadhar_number', label: 'Aadhaar Number' },
+        { key: 'dob', label: 'Date of Birth (DD/MM/YYYY)' },
+        { key: 'gender', label: 'Gender' },
+        { key: 'mobile_number', label: 'Mobile Number' },
+        { key: 'father_name', label: "Father / Guardian Name" },
+        { key: 'address_line_1', label: 'Address Line 1 (Flat / Street)' },
+        { key: 'address_line_2', label: 'Address Line 2 (Locality / District)' },
+        { key: 'pincode', label: 'Pincode' },
+        { key: 'state', label: 'State' }
+      ],
+      pan: [
+        { key: 'applicant_first_name', label: 'First Name (Initial Expanded)' },
+        { key: 'applicant_middle_name', label: 'Middle Name' },
+        { key: 'applicant_last_name', label: 'Last Name / Surname * (Mandatory)' },
+        { key: 'name_as_per_aadhar', label: 'Name As Per Aadhaar' },
+        { key: 'father_first_name', label: "Father's First Name" },
+        { key: 'father_middle_name', label: "Father's Middle Name" },
+        { key: 'father_last_name', label: "Father's Last Name" },
+        { key: 'aadhar_number', label: 'Aadhaar Number' },
+        { key: 'dob', label: 'Date of Birth' },
+        { key: 'gender', label: 'Gender' },
+        { key: 'mobile_number', label: 'Mobile Number' },
+        { key: 'state', label: 'State' },
+        { key: 'pincode', label: 'Pincode' },
+        { key: 'address_line_1', label: 'Address Line 1' },
+        { key: 'address_line_2', label: 'Address Line 2' }
+      ]
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedWebhook = localStorage.getItem('aadhaar_webhook_url');
+      if (savedWebhook) {
+        const input = document.getElementById('webhook-input');
+        if (input) input.value = savedWebhook;
+      }
+      checkCDPStatus();
+      setInterval(checkCDPStatus, 4000);
+      renderFields();
+    });
+
+
+    function handleFileSelect(event) {
+      const files = Array.from(event.target.files || []);
+      if (files.length === 0) return;
+      addFilesToBatch(files);
+      event.target.value = ''; // Reset so the same file(s) can be selected again
+    }
+
+    const dropzone = document.getElementById('dropzone');
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        addFilesToBatch(Array.from(e.dataTransfer.files));
+      }
+    });
+
+    function addFilesToBatch(files) {
+      const startIndex = batchQueue.length;
+      files.forEach(f => {
+        batchQueue.push({
+          id: 'card-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+          file: f,
+          filename: f.name,
+          previewUrl: URL.createObjectURL(f),
+          status: 'pending',
+          data: {
+            aadhar_number: '',
+            full_name: '',
+            name_as_per_aadhar: '',
+            applicant_first_name: '',
+            applicant_middle_name: '',
+            applicant_last_name: '',
+            father_name: '',
+            father_first_name: '',
+            father_middle_name: '',
+            father_last_name: '',
+            dob: '',
+            gender: '',
+            mobile_number: '',
+            state: '',
+            address_line_1: '',
+            address_line_2: '',
+            pincode: ''
+          }
+
+        });
+      });
+
+      renderBatchChips();
+
+      // If nothing was selected before, activate the first new file
+      if (activeIndex === -1 || !batchQueue[activeIndex]) {
+        selectCard(startIndex);
+      }
+
+      // Auto-extract active card
+      if (batchQueue[activeIndex] && batchQueue[activeIndex].status === 'pending') {
+        extractCard(activeIndex);
+      }
+
+      if (files.length > 1) {
+        showToast(`${files.length} Aadhaar cards added to queue! Click "Extract All Pending" to process all.`, 'success');
+      }
+    }
+
+    function renderBatchChips() {
+      const container = document.getElementById('batch-chips-container');
+      const counter = document.getElementById('batch-counter');
+      const batchContainer = document.getElementById('batch-container');
+      const syncAllBtn = document.getElementById('sync-all-sheet-btn');
+      const syncAllCount = document.getElementById('sync-all-count');
+
+      if (batchQueue.length === 0) {
+        container.innerHTML = '';
+        batchContainer.style.display = 'none';
+        if (syncAllBtn) syncAllBtn.disabled = true;
+        if (syncAllCount) syncAllCount.innerText = '0';
+        return;
+      }
+
+      batchContainer.style.display = 'flex';
+      const readyCards = batchQueue.filter(c => c.status === 'ready' || c.status === 'synced');
+      counter.innerText = `${batchQueue.length} Cards (${readyCards.length} Ready)`;
+
+      if (syncAllBtn) syncAllBtn.disabled = readyCards.length === 0;
+      if (syncAllCount) syncAllCount.innerText = readyCards.length;
+
+      container.innerHTML = batchQueue.map((card, idx) => {
+        const isActive = idx === activeIndex ? 'active' : '';
+        const badgeText = card.status === 'pending' ? 'Pending' :
+                          card.status === 'extracting' ? 'Extracting...' :
+                          card.status === 'ready' ? 'Ready' :
+                          card.status === 'synced' ? 'Synced ✓' : 'Error';
+
+        const displayName = card.data.full_name || card.filename;
+        const displaySub = card.data.aadhar_number ? card.data.aadhar_number : `Card #${idx + 1}`;
+
+        return `
+          <div class="batch-card-chip ${isActive}" onclick="selectCard(${idx})">
+            <div class="chip-top">
+              <span class="chip-badge ${card.status}">${badgeText}</span>
+              <button class="chip-del" title="Remove Card" onclick="removeCard(event, ${idx})">&times;</button>
+            </div>
+            <div class="chip-filename" title="${card.filename}">${card.filename}</div>
+            <div class="chip-name" title="${displayName}">${displayName}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selectCard(idx) {
+      if (idx < 0 || idx >= batchQueue.length) return;
+      saveFormToCurrentCard();
+
+      activeIndex = idx;
+      const card = batchQueue[activeIndex];
+
+      const previewImg = document.getElementById('preview-img');
+      const placeholder = document.getElementById('preview-placeholder');
+      const controls = document.getElementById('img-controls');
+      const extractBtn = document.getElementById('extract-btn');
+      const badge = document.getElementById('extraction-badge');
+
+      previewImg.src = card.previewUrl;
+      previewImg.style.display = 'block';
+      placeholder.style.display = 'none';
+      controls.style.display = 'flex';
+      extractBtn.disabled = card.status === 'extracting';
+
+      if (card.status === 'synced') {
+        badge.innerText = 'Synced to Sheet ✓';
+        badge.style.color = 'var(--cyan)';
+      } else if (card.status === 'ready') {
+        badge.innerText = 'Extraction Ready';
+        badge.style.color = '#34d399';
+      } else if (card.status === 'extracting') {
+        badge.innerText = 'Extracting...';
+        badge.style.color = '#a5b4fc';
+      } else {
+        badge.innerText = 'Pending Extraction';
+        badge.style.color = '#fbbf24';
+      }
+
+      currentZoom = 1;
+      currentRotation = 0;
+      updateTransform();
+
+      renderFields();
+      renderBatchChips();
+    }
+
+    function saveFormToCurrentCard() {
+      // Kept for backward compatibility: card.data is continuously updated in real-time
+    }
+
+    async function extractCard(idx) {
+      if (idx < 0 || idx >= batchQueue.length) return;
+      const card = batchQueue[idx];
+      card.status = 'extracting';
+      renderBatchChips();
+
+      if (idx === activeIndex) {
+        const btn = document.getElementById('extract-btn');
+        const spinner = document.getElementById('extract-spinner');
+        const text = document.getElementById('extract-btn-text');
+        const badge = document.getElementById('extraction-badge');
+        btn.classList.add('loading');
+        spinner.style.display = 'inline-block';
+        text.innerText = 'Extracting...';
+        badge.innerText = 'Processing...';
+      }
+
+      try {
+        let formData = new FormData();
+        formData.append('file', card.file);
+
+        const response = await fetch('/api/extract', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+        if (result.status === 'success') {
+          card.data = result.data;
+          card.status = 'ready';
+          if (idx === activeIndex) {
+            renderFields();
+            const badge = document.getElementById('extraction-badge');
+            badge.innerText = 'Extraction Ready';
+            badge.style.color = '#34d399';
+            showToast(`Data extracted for ${card.filename}!`, 'success');
+          }
+        } else {
+          card.status = 'error';
+          showToast(`Warning for ${card.filename}: ${result.message || 'Check image'}`, 'error');
+        }
+      } catch (err) {
+        card.status = 'error';
+        showToast(`Extraction error for ${card.filename}: ${err.message}`, 'error');
+      } finally {
+        if (idx === activeIndex) {
+          const btn = document.getElementById('extract-btn');
+          const spinner = document.getElementById('extract-spinner');
+          const text = document.getElementById('extract-btn-text');
+          btn.classList.remove('loading');
+          spinner.style.display = 'none';
+          text.innerText = 'Re-Run Extraction';
+        }
+        renderBatchChips();
+      }
+    }
+
+    async function extractAllPending() {
+      const pendingIndices = [];
+      batchQueue.forEach((card, idx) => {
+        if (card.status === 'pending' || card.status === 'error') {
+          pendingIndices.push(idx);
+        }
+      });
+
+      if (pendingIndices.length === 0) {
+        showToast('All cards are already extracted!', 'success');
+        return;
+      }
+
+      const allBtn = document.getElementById('extract-all-btn');
+      allBtn.disabled = true;
+      allBtn.innerText = `Extracting (0/${pendingIndices.length})...`;
+
+      let done = 0;
+      for (const idx of pendingIndices) {
+        await extractCard(idx);
+        done++;
+        allBtn.innerText = `Extracting (${done}/${pendingIndices.length})...`;
+      }
+
+      allBtn.disabled = false;
+      allBtn.innerText = '⚡ Extract All Pending';
+      showToast(`Batch extraction complete for ${done} cards!`, 'success');
+    }
+
+    function runExtraction() {
+      if (activeIndex >= 0) {
+        extractCard(activeIndex);
+      } else {
+        showToast('Please select a card from the queue first.', 'error');
+      }
+    }
+
+    function removeCard(event, idx) {
+      event.stopPropagation();
+      batchQueue.splice(idx, 1);
+      if (activeIndex >= batchQueue.length) {
+        activeIndex = batchQueue.length - 1;
+      }
+      if (activeIndex >= 0) {
+        selectCard(activeIndex);
+      } else {
+        document.getElementById('preview-img').style.display = 'none';
+        document.getElementById('preview-placeholder').style.display = 'flex';
+        document.getElementById('img-controls').style.display = 'none';
+        document.getElementById('extract-btn').disabled = true;
+        document.getElementById('extraction-badge').innerText = 'Waiting for Upload';
+        renderFields();
+        renderBatchChips();
+      }
+    }
+
+    function clearBatchQueue() {
+      if (batchQueue.length === 0) return;
+      if (!confirm('Clear all cards from the batch queue?')) return;
+      batchQueue = [];
+      activeIndex = -1;
+      document.getElementById('preview-img').style.display = 'none';
+      document.getElementById('preview-placeholder').style.display = 'flex';
+      document.getElementById('img-controls').style.display = 'none';
+      document.getElementById('extract-btn').disabled = true;
+      document.getElementById('extraction-badge').innerText = 'Waiting for Upload';
+      renderFields();
+      renderBatchChips();
+      showToast('Queue cleared.', 'success');
+    }
+
+    /* ==========================================================
+       DYNAMIC FIELDS MANAGEMENT (ADD, REMOVE, EDIT, PRESETS)
+       ========================================================== */
+
+    function switchPreset(preset) {
+      activePreset = preset;
+      document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.getElementById(`tab-mode-${preset}`);
+      if (activeBtn) activeBtn.classList.add('active');
+      renderFields();
+    }
+
+    function getActiveCardData() {
+      if (activeIndex >= 0 && activeIndex < batchQueue.length) {
+        if (!batchQueue[activeIndex].data) batchQueue[activeIndex].data = {};
+        return batchQueue[activeIndex].data;
+      }
+      return {};
+    }
+
+    function renderFields() {
+      const container = document.getElementById('fields-container');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const data = getActiveCardData();
+      let fieldList = [];
+
+      if (activePreset === 'standard') {
+        fieldList = [...PRESET_DEFINITIONS.standard];
+      } else if (activePreset === 'pan') {
+        fieldList = [...PRESET_DEFINITIONS.pan];
+      } else {
+        // 'all' preset: list every non-internal key
+        Object.keys(data).forEach(k => {
+          if (!k.startsWith('_')) {
+            const pretty = k.replace(/_/g, ' ').toUpperCase();
+            fieldList.push({ key: k, label: pretty });
+          }
+        });
+      }
+
+      // Append any custom keys that user added or extracted that aren't already in fieldList
+      const existingKeys = new Set(fieldList.map(f => f.key));
+      Object.keys(data).forEach(k => {
+        if (!existingKeys.has(k) && !k.startsWith('_')) {
+          const pretty = k.replace(/_/g, ' ').toUpperCase();
+          fieldList.push({ key: k, label: pretty, isCustom: true });
+        }
+      });
+
+      if (fieldList.length === 0) {
+        container.innerHTML = `
+          <div style="grid-column: 1/-1; text-align:center; padding:36px 20px; color:var(--text-muted); font-size:0.85rem; background:rgba(15,23,42,0.4); border-radius:var(--radius-md); border:1px dashed var(--border-color);">
+            <p style="margin-bottom:8px; font-weight:600; color:var(--text-main);">No fields to display</p>
+            <p>Upload an Aadhaar card to auto-extract, or click <button class="btn btn-xs btn-secondary" onclick="openAddFieldModal()" style="display:inline-flex; vertical-align:middle;">+ Add Field</button> to add your own.</p>
+          </div>
+        `;
+        return;
+      }
+
+      fieldList.forEach(item => {
+        const key = item.key;
+        const label = item.label || key.replace(/_/g, ' ').toUpperCase();
+        const val = (data[key] || '').toUpperCase();
+        const isAddress = key.includes('address') || key.includes('addr');
+
+        const cardEl = document.createElement('div');
+        cardEl.className = `field-card-item ${isAddress ? 'full-width' : ''}`;
+        cardEl.id = `card-field-${key}`;
+
+        const escapedVal = val.replace(/"/g, '&quot;');
+
+        cardEl.innerHTML = `
+          <div class="field-card-header">
+            <span class="field-card-label" title="Click to rename field" onclick="promptRenameField('${key}')">
+              <span>${label}</span>
+              <span class="edit-label-btn" title="Rename field">✎</span>
+            </span>
+            <div class="field-card-actions">
+              <button class="chip-btn chip-copy" onclick="copyFieldValue('${key}')" title="Copy value">Copy</button>
+              <button class="chip-btn chip-fill" onclick="triggerCDPFill('field:${key}')" title="Fill this field into opened browser tab">⚡ Fill</button>
+              <button class="chip-btn chip-del" onclick="deleteField('${key}')" title="Remove this field">✕</button>
+            </div>
+          </div>
+          <div class="field-input-box">
+            ${isAddress ? 
+              `<textarea id="input-field-${key}" class="input-field" rows="2" placeholder="${label}" oninput="handleFieldInput('${key}', this.value)">${val}</textarea>` :
+              `<input type="text" id="input-field-${key}" class="input-field" placeholder="${label}" value="${escapedVal}" oninput="handleFieldInput('${key}', this.value)">`
+            }
+          </div>
+        `;
+        container.appendChild(cardEl);
+      });
+    }
+
+    function handleFieldInput(key, value) {
+      const data = getActiveCardData();
+      data[key] = String(value).toUpperCase();
+      scheduleAutoSave();
+    }
+
+    function scheduleAutoSave() {
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(() => {
+        saveRecordToServer(false);
+      }, 700);
+    }
+
+    function openAddFieldModal() {
+      document.getElementById('new-field-label').value = '';
+      document.getElementById('new-field-value').value = '';
+      delete document.getElementById('new-field-label').dataset.key;
+      document.getElementById('add-field-modal').classList.add('active');
+      document.getElementById('new-field-label').focus();
+    }
+
+    function closeAddFieldModal() {
+      document.getElementById('add-field-modal').classList.remove('active');
+    }
+
+    function setAddSuggestion(label, key) {
+      const labelInput = document.getElementById('new-field-label');
+      labelInput.value = label;
+      labelInput.dataset.key = key;
+      document.getElementById('new-field-value').focus();
+    }
+
+    function submitAddField() {
+      const labelInput = document.getElementById('new-field-label');
+      const valInput = document.getElementById('new-field-value');
+      const label = labelInput.value.trim();
+      const val = valInput.value.trim().toUpperCase();
+
+      if (!label) {
+        alert('Please enter a field name or select a suggestion.');
+        return;
+      }
+
+      const key = labelInput.dataset.key || label.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
+      const data = getActiveCardData();
+      data[key] = val;
+
+      closeAddFieldModal();
+      renderFields();
+      saveRecordToServer(true);
+      showToast(`Added field "${label}"!`, 'success');
+    }
+
+    function deleteField(key) {
+      const data = getActiveCardData();
+      if (confirm(`Remove field "${key}" from this card?`)) {
+        delete data[key];
+        renderFields();
+        saveRecordToServer(false);
+        showToast(`Field "${key}" removed.`, 'success');
+      }
+    }
+
+    function promptRenameField(oldKey) {
+      const newLabel = prompt(`Rename field "${oldKey}":`, oldKey.replace(/_/g, ' ').toUpperCase());
+      if (newLabel && newLabel.trim() && newLabel.trim() !== oldKey) {
+        const data = getActiveCardData();
+        const newKey = newLabel.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
+        data[newKey] = data[oldKey] || '';
+        delete data[oldKey];
+        renderFields();
+        saveRecordToServer(false);
+        showToast(`Field renamed to "${newLabel.trim()}"`, 'success');
+      }
+    }
+
+    function restoreDefaultFields() {
+      renderFields();
+      showToast('Fields reset to current view preset.', 'success');
+    }
+
+    async function saveRecordToServer(verbose = true) {
+      const data = getActiveCardData();
+      try {
+        const res = await fetch('/api/update-record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (result.status === 'success' && verbose) {
+          showToast('Record saved and updated on server!', 'success');
+        }
+      } catch (e) {
+        console.error('Error saving record:', e);
+      }
+    }
+
+    function copyFieldValue(key) {
+      const data = getActiveCardData();
+      const val = data[key] || '';
+      if (val) {
+        navigator.clipboard.writeText(val);
+        showToast(`Copied: ${val}`, 'success');
+      } else {
+        showToast(`Field "${key}" is empty.`, 'error');
+      }
+    }
+
+    function copyAllFieldsText() {
+      const data = getActiveCardData();
+      const lines = Object.entries(data)
+        .filter(([k, v]) => !k.startsWith('_') && v)
+        .map(([k, v]) => `${k.replace(/_/g, ' ').toUpperCase()}: ${v}`);
+      
+      if (lines.length === 0) {
+        showToast('No fields to copy.', 'error');
+        return;
+      }
+      navigator.clipboard.writeText(lines.join('\n'));
+      showToast('All fields copied as text!', 'success');
+    }
+
+    function copyJSON() {
+      const data = getActiveCardData();
+      navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+      showToast('Copied JSON to clipboard!', 'success');
+    }
+
+    async function checkCDPStatus(showToastOnCheck = false) {
+      const dot = document.getElementById('cdp-dot');
+      const info = document.getElementById('cdp-tab-info');
+      const launchBtn = document.getElementById('btn-launch-chrome');
+      if (!dot || !info) return;
+
+      try {
+        const res = await fetch('/api/cdp-status');
+        const data = await res.json();
+        if (data.connected) {
+          dot.className = 'cdp-status-dot connected';
+          info.innerText = `Connected: ${data.title || 'Target Portal'}`;
+          info.title = data.url || '';
+          if (launchBtn) launchBtn.style.display = 'none';
+          if (showToastOnCheck) showToast(`Browser Connected: ${data.title}`, 'success');
+        } else {
+          dot.className = 'cdp-status-dot';
+          info.innerText = 'Browser Port 9222 Disconnected';
+          info.title = data.message || '';
+          if (launchBtn) launchBtn.style.display = 'inline-flex';
+          if (showToastOnCheck) showToast('Chrome port 9222 not detected. Click "Launch Chrome (Port 9222)" or use the Console Script.', 'error');
+        }
+      } catch (err) {
+        dot.className = 'cdp-status-dot';
+        info.innerText = 'Server offline (8000)';
+      }
+    }
+
+    async function launchConnectedChrome() {
+      showToast('Launching Chrome on remote debugging port 9222...', 'info');
+      try {
+        const res = await fetch('/api/launch-chrome', { method: 'POST' });
+        const result = await res.json();
+        if (result.status === 'success') {
+          showToast(result.message, 'success');
+          setTimeout(() => checkCDPStatus(true), 2000);
+        } else {
+          showToast(result.message || 'Could not launch automatically', 'error');
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+      }
+    }
+
+    function generateStandaloneAutofillScript(cardData) {
+      const d = cardData || getActiveCardData();
+      const jsonStr = JSON.stringify({
+        full_name: d.full_name || '',
+        name_as_per_aadhar: d.name_as_per_aadhar || d.full_name || '',
+        applicant_first_name: d.applicant_first_name || '',
+        applicant_middle_name: d.applicant_middle_name || '',
+        applicant_last_name: d.applicant_last_name || '',
+        father_name: d.father_name || '',
+        father_first_name: d.father_first_name || '',
+        father_middle_name: d.father_middle_name || '',
+        father_last_name: d.father_last_name || '',
+        dob: d.dob || '',
+        gender: d.gender || '',
+        mobile_number: d.mobile_number || '',
+        pincode: d.pincode || '',
+        state: d.state || 'TAMIL NADU',
+        email: d.email || d.email_id || '',
+        aadhar_number: d.aadhar_number || ''
+      }, null, 2);
+
+      return `(() => {
+  const d = ${jsonStr};
+  console.log("⚡ [Aadhaar Form 49A Autofill] Starting for:", d.full_name || d.name_as_per_aadhar);
+
+  let filledCount = 0;
+  const report = [];
+
+  const highlight = (el) => {
+    try {
+      el.style.backgroundColor = '#dcfce7';
+      el.style.border = '2px solid #16a34a';
+      el.style.transition = 'all 0.2s';
+    } catch(e){}
+  };
+
+  const setInput = (el, val, label) => {
+    if (!el || val === undefined || val === null || val === '') return false;
+    try {
+      el.focus();
+      el.value = String(val).toUpperCase();
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.dispatchEvent(new Event('blur', { bubbles: true }));
+      highlight(el);
+      filledCount++;
+      report.push({ Field: label, Value: val, Status: "✓ Filled" });
+      return true;
+    } catch(err) {
+      console.warn("Could not set input", el, err);
+      return false;
+    }
+  };
+
+  const setSelect = (sel, matchText, label) => {
+    if (!sel || !matchText) return false;
+    try {
+      const search = String(matchText).toUpperCase().trim();
+      for (let i = 0; i < sel.options.length; i++) {
+        const opt = sel.options[i];
+        if (opt.text.toUpperCase().includes(search) || opt.value.toUpperCase().includes(search)) {
+          sel.selectedIndex = i;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+          highlight(sel);
+          filledCount++;
+          report.push({ Field: label, Value: opt.text, Status: "✓ Selected" });
+          return true;
+        }
+      }
+    } catch(err){}
+    return false;
+  };
+
+  const setRadio = (matchTexts, label) => {
+    try {
+      const radios = Array.from(document.querySelectorAll('input[type="radio"]'));
+      for (const r of radios) {
+        const parentText = (r.parentElement ? r.parentElement.innerText : '').toUpperCase();
+        const val = (r.value || '').toUpperCase();
+        if (matchTexts.some(t => parentText.includes(t.toUpperCase()) || val.includes(t.toUpperCase()))) {
+          r.click();
+          r.dispatchEvent(new Event('change', { bubbles: true }));
+          filledCount++;
+          report.push({ Field: label, Value: parentText.trim() || val, Status: "✓ Clicked" });
+          return true;
+        }
+      }
+    } catch(e){}
+    return false;
+  };
+
+  const findByLabel = (labelKeywords, rowKeywords = null) => {
+    const lk = Array.isArray(labelKeywords) ? labelKeywords.map(k=>k.toLowerCase()) : [labelKeywords.toLowerCase()];
+    const all = Array.from(document.querySelectorAll('input:not([type="hidden"]), select, textarea'));
+    
+    for (const el of all) {
+      const name = (el.name || '').toLowerCase();
+      const id = (el.id || '').toLowerCase();
+      const ph = (el.placeholder || '').toLowerCase();
+      if (lk.some(k => name.includes(k) || id.includes(k) || ph.includes(k))) {
+        if (!rowKeywords || rowKeywords.some(rk => name.includes(rk) || id.includes(rk))) {
+          return el;
+        }
+      }
+    }
+
+    const cells = Array.from(document.querySelectorAll('td, th, label, font, b, span, p'));
+    for (const cell of cells) {
+      const cellText = (cell.innerText || '').toLowerCase().trim();
+      if (lk.some(k => cellText.includes(k))) {
+        const row = cell.closest('tr') || cell.parentElement;
+        if (rowKeywords && row) {
+          const rowText = row.innerText.toLowerCase();
+          if (!rowKeywords.some(rk => rowText.includes(rk))) continue;
+        }
+        let input = cell.querySelector('input:not([type="hidden"]), select') ||
+                    (cell.nextElementSibling ? cell.nextElementSibling.querySelector('input:not([type="hidden"]), select') : null) ||
+                    (cell.previousElementSibling ? cell.previousElementSibling.querySelector('input:not([type="hidden"]), select') : null);
+        if (input) return input;
+      }
+    }
+    return null;
+  };
+
+  // 1. Category of Applicant
+  const catSel = document.getElementById("cat_applicant") || document.querySelector('select[name*="category" i]');
+  if (catSel) setSelect(catSel, 'Individual', 'Category');
+
+  // 2. Applicant Names: First, Middle, Last
+  const fName = document.getElementById("f_name");
+  const mName = document.getElementById("m_name");
+  const lName = document.getElementById("l_name");
+  if (fName) setInput(fName, d.applicant_first_name, 'Applicant First Name');
+  if (mName) setInput(mName, d.applicant_middle_name, 'Applicant Middle Name');
+  if (lName) setInput(lName, d.applicant_last_name || d.full_name, 'Applicant Last Name');
+
+  // 3. Single Parent Radio (No -> nmother)
+  const noRadio = document.getElementById("nmother");
+  if (noRadio) {
+    noRadio.checked = true;
+    noRadio.click();
+    noRadio.dispatchEvent(new Event('change', {bubbles:true}));
+    filledCount++;
+    report.push({ Field: 'Single Parent', Value: 'No', Status: '✓ Clicked' });
+  }
+
+  // 4. Father's Name: faf_name, fam_name, fal_name
+  const fafName = document.getElementById("faf_name");
+  const famName = document.getElementById("fam_name");
+  const falName = document.getElementById("fal_name");
+  const fatherLast = d.father_last_name || d.father_name;
+  if (fafName) setInput(fafName, d.father_first_name, "Father's First Name");
+  if (famName) setInput(famName, d.father_middle_name, "Father's Middle Name");
+  if (falName) setInput(falName, fatherLast, "Father's Last Name");
+
+  // 5. Date of Birth: dob (dd/MM/yyyy)
+  const dobInput = document.getElementById("dob");
+  if (dobInput) setInput(dobInput, d.dob, 'Date of Birth');
+
+  // 6. Residential Status: residential_status (Resident -> "R")
+  const resSel = document.getElementById("residential_status");
+  if (resSel) setSelect(resSel, 'R', 'Residential Status');
+
+  // 7. ISD Code: mobile_isd (India -> "91")
+  const isdSel = document.getElementById("mobile_isd");
+  if (isdSel) setSelect(isdSel, '91', 'ISD Code');
+
+  // 8. Mobile Number: mobile_number
+  const mobInput = document.getElementById("mobile_number");
+  if (mobInput) setInput(mobInput, d.mobile_number, 'Mobile Number');
+
+  // 9. Email ID: email_id
+  if (d.email || d.email_id) {
+    const emailInput = document.getElementById("email_id");
+    if (emailInput) setInput(emailInput, d.email || d.email_id, 'Email ID');
+  }
+
+  // 10. Address for Communication: add_comm (INDIAN)
+  const commSel = document.getElementById("add_comm");
+  if (commSel) setSelect(commSel, 'INDIAN', 'Address for Communication');
+
+  // 11. Name As Per Aadhaar: name_aadhaar
+  const asPerAadhaar = document.getElementById("name_aadhaar");
+  if (asPerAadhaar) setInput(asPerAadhaar, d.name_as_per_aadhar || d.full_name, 'Name As Per Aadhaar');
+
+  // 12. State: user_state
+  const stateSel = document.getElementById("user_state");
+  if (stateSel) setSelect(stateSel, d.state || 'TAMIL NADU', 'State');
+
+  // 13. PIN Code: pincode
+  const pinInput = document.getElementById("pincode");
+  if (pinInput) setInput(pinInput, d.pincode, 'PIN Code');
+
+  // 14. Representative Assessee: NO (appointRA_no)
+  const appointRaNo = document.getElementById("appointRA_no");
+  if (appointRaNo) {
+    appointRaNo.checked = true;
+    appointRaNo.click();
+    appointRaNo.dispatchEvent(new Event('change', {bubbles:true}));
+  }
+
+  // 15. Aadhaar Dropdown: check_aadhaar_eid ("A") & Number: aadhaarNo
+  const aadhaarSel = document.getElementById("check_aadhaar_eid");
+  if (aadhaarSel) {
+    setSelect(aadhaarSel, 'A', 'Aadhaar Type');
+    if (typeof window.showBox === 'function') window.showBox();
+  }
+  const cleanUid = (d.aadhar_number || '').replace(/\\D/g, '');
+  if (cleanUid) {
+    setTimeout(() => {
+      const uidInput = document.getElementById("aadhaarNo");
+      if (uidInput) setInput(uidInput, cleanUid, 'Aadhaar Number');
+    }, 150);
+  }
+
+  // 16. Proofs: proof_id, proof_add
+  const proofId = document.getElementById("proof_id");
+  if (proofId) setSelect(proofId, 'AADHAAR', 'Proof of Identity');
+  const proofAdd = document.getElementById("proof_add");
+  if (proofAdd) setSelect(proofAdd, 'AADHAAR', 'Proof of Address');
+
+  // Notification Toast on Screen
+  let toast = document.getElementById('pan-autofill-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'pan-autofill-toast';
+    toast.style = 'position:fixed;top:16px;right:16px;z-index:9999999;padding:14px 22px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;font-weight:700;color:#fff;background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 10px 30px rgba(0,0,0,0.5);display:flex;align-items:center;gap:10px;';
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = '<span>✓</span><span>Successfully filled ' + filledCount + ' fields for ' + (d.full_name || d.name_as_per_aadhar) + '!</span>';
+  toast.style.display = 'flex';
+  setTimeout(() => { toast.style.display = 'none'; }, 6000);
+
+  console.table(report);
+  console.log("%c✓ PAN FORM AUTOFILL COMPLETE: " + filledCount + " fields populated.", "color:#10b981;font-size:14px;font-weight:bold;");
+})();`;
+    }
+
+    function copyActiveCardConsoleSnippet() {
+      const code = generateStandaloneAutofillScript();
+      navigator.clipboard.writeText(code);
+      showToast('📋 Standalone script copied! Paste into portal Console (Ctrl+V) & hit Enter.', 'success');
+    }
+
+    function openAutofillGuideModal() {
+      const snippetEl = document.getElementById('console-snippet-text');
+      if (snippetEl) {
+        snippetEl.innerText = generateStandaloneAutofillScript();
+      }
+      document.getElementById('autofill-guide-modal').classList.add('active');
+    }
+
+    function closeAutofillGuideModal() {
+      document.getElementById('autofill-guide-modal').classList.remove('active');
+    }
+
+    function copySnippetText(id) {
+      const text = document.getElementById(id).innerText;
+      navigator.clipboard.writeText(text);
+      showToast('Copied to clipboard!', 'success');
+    }
+
+    async function triggerCDPFill(step = 'all') {
+      showToast(`Autofilling browser tab for "${step}"...`, 'success');
+      try {
+        const res = await fetch(`/api/cdp-fill?step=${encodeURIComponent(step)}`);
+        const result = await res.json();
+        if (result.status === 'error') {
+          showToast(result.message || 'Make sure Chrome is running on port 9222', 'error');
+          if (result.message && result.message.includes('9222')) {
+            openAutofillGuideModal();
+          }
+        } else {
+          const logs = result.logs || [];
+          const count = logs.length;
+          if (count > 0) {
+            showToast(`Autofilled ${count} field(s) in opened portal tab!`, 'success');
+          } else {
+            showToast(`CDP fill triggered for step "${step}"`, 'success');
+          }
+        }
+      } catch (err) {
+        showToast(`CDP fill error: ${err.message}`, 'error');
+      }
+    }
+
+    function getFormValues() {
+      return getActiveCardData();
+    }
+
+
+    async function syncToGoogleSheet() {
+      saveFormToCurrentCard();
+      const data = getFormValues();
+      const webhook = data.webhook_url;
+
+      if (!webhook) {
+        openSheetsModal();
+        showToast('Please enter your Google Apps Script Webhook URL first.', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('sync-sheet-btn');
+      const spinner = document.getElementById('sync-spinner');
+      const icon = document.getElementById('sync-icon');
+      const text = document.getElementById('sync-btn-text');
+
+      spinner.style.display = 'inline-block';
+      icon.style.display = 'none';
+      text.innerText = 'Syncing...';
+
+      try {
+        const res = await fetch('/api/sync-sheets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+          if (activeIndex >= 0 && batchQueue[activeIndex]) {
+            batchQueue[activeIndex].status = 'synced';
+            renderBatchChips();
+            selectCard(activeIndex);
+          }
+          showToast('Card synced to Google Sheet without timestamp!', 'success');
+        } else {
+          showToast('Sync error: ' + (result.message || 'Error occurred'), 'error');
+        }
+      } catch (err) {
+        showToast('Failed to sync to Google Sheet: ' + err.message, 'error');
+      } finally {
+        spinner.style.display = 'none';
+        icon.style.display = 'inline-block';
+        text.innerText = 'Sync Active Card';
+      }
+    }
+
+    async function syncAllToGoogleSheet() {
+      saveFormToCurrentCard();
+      const webhook = localStorage.getItem('aadhaar_webhook_url');
+      if (!webhook) {
+        openSheetsModal();
+        showToast('Please enter your Google Apps Script Webhook URL first.', 'error');
+        return;
+      }
+
+      // Collect cards that have at least some data
+      const readyCards = batchQueue.filter(c => c.data && (c.data.aadhar_number || c.data.full_name));
+      if (readyCards.length === 0) {
+        showToast('No extracted cards to sync yet.', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('sync-all-sheet-btn');
+      const spinner = document.getElementById('sync-all-spinner');
+      const icon = document.getElementById('sync-all-icon');
+      const text = document.getElementById('sync-all-btn-text');
+
+      spinner.style.display = 'inline-block';
+      icon.style.display = 'none';
+      text.innerText = 'Syncing All...';
+
+      try {
+        const payload = {
+          records: readyCards.map(c => c.data),
+          webhook_url: webhook
+        };
+
+        const res = await fetch('/api/sync-sheets-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+          readyCards.forEach(c => { c.status = 'synced'; });
+          renderBatchChips();
+          if (activeIndex >= 0) selectCard(activeIndex);
+          showToast(`${readyCards.length} Aadhaar cards added to Google Sheet without timestamp!`, 'success');
+        } else {
+          showToast('Batch sync warning: ' + (result.message || 'Error occurred'), 'error');
+        }
+      } catch (err) {
+        showToast('Failed to batch sync: ' + err.message, 'error');
+      } finally {
+        spinner.style.display = 'none';
+        icon.style.display = 'inline-block';
+        text.innerText = 'Sync All to Google Sheet';
+      }
+    }
+
+    function downloadCSV() {
+      window.location.href = '/api/download-csv';
+    }
+
+    function copyField(id) {
+      const val = document.getElementById(id).value;
+      if (val) {
+        navigator.clipboard.writeText(val);
+        showToast(`Copied: ${val}`, 'success');
+      }
+    }
+
+    function showToast(msg, type = 'success') {
+      const toast = document.getElementById('status-toast');
+      toast.innerText = msg;
+      toast.className = `status-alert ${type}`;
+      toast.style.display = 'flex';
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 5000);
+    }
+
+    function rotateImage(deg) {
+      currentRotation = (currentRotation + deg) % 360;
+      updateTransform();
+    }
+    function zoomImage(factor) {
+      currentZoom = Math.max(0.5, Math.min(3, currentZoom * factor));
+      updateTransform();
+    }
+    function updateTransform() {
+      const img = document.getElementById('preview-img');
+      img.style.transform = `scale(${currentZoom}) rotate(${currentRotation}deg)`;
+    }
+
+    function openSheetsModal() {
+      document.getElementById('sheets-modal').classList.add('active');
+    }
+    function closeSheetsModal() {
+      document.getElementById('sheets-modal').classList.remove('active');
+    }
+    function openAutofillModal() {
+      document.getElementById('autofill-modal').classList.add('active');
+    }
+    function closeAutofillModal() {
+      document.getElementById('autofill-modal').classList.remove('active');
+    }
+
+    function saveWebhookUrl() {
+      const url = document.getElementById('webhook-input').value.trim();
+      if (url) {
+        localStorage.setItem('aadhaar_webhook_url', url);
+        showToast('Webhook URL saved!', 'success');
+        closeSheetsModal();
+      } else {
+        alert('Please enter a valid Webhook URL.');
+      }
+    }
+
+    function copyAppsScriptCode() {
+      const code = document.getElementById('apps-script-code').innerText;
+      navigator.clipboard.writeText(code);
+      showToast('Apps Script code copied to clipboard!', 'success');
+    }
+
+    function copyUserscriptCode() {
+      const code = document.getElementById('userscript-code').innerText;
+      navigator.clipboard.writeText(code);
+      showToast('Userscript code copied to clipboard!', 'success');
+    }
+
+    async function triggerCDPFill(step = 'all') {
+      showToast(`Connecting via CDP on port 9222 (${step})...`, 'info');
+      try {
+        const res = await fetch(`/api/cdp-fill?step=${step}`);
+        const result = await res.json();
+        if (result.status === 'error') {
+          showToast(result.message || 'Make sure Chrome is running on port 9222', 'error');
+        } else {
+          showToast(`CDP filled '${step}' in open Chrome portal!`, 'success');
+        }
+      } catch (err) {
+        showToast(`CDP error: ${err.message}`, 'error');
+      }
+    }
+  </script>
+
+
+</body>
+</html>

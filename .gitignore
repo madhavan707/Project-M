@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Temporary and session files
+cookies.txt
+*.log
+
+# Personal and uploaded data (Aadhaar / PII)
+uploads/*
+!uploads/.gitkeep
+aadhaar_extracted_records.csv
+*.csv
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+*.swo

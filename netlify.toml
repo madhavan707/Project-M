@@ -1,0 +1,18 @@
+# Netlify Configuration for Project M
+[build]
+  # Directory to deploy (contains index.html, static assets, scripts)
+  publish = "static"
+
+# Enable SPA / direct routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security and CORS Headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS, PUT"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
